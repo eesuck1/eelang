@@ -1,0 +1,3 @@
+[submodule "eelib"]
+	path = eelib
+	url = https://github.com/eesuck1/eelib.git
