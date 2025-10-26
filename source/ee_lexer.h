@@ -44,13 +44,33 @@ typedef enum Token_Type
 {
     // NOTE(eesuck): all single char token used directly
     
-    TOKEN_IDENTIFIER  = 256,
-    TOKEN_FUNCTION    = 257,
-    TOKEN_LIT_INT     = 258,
-    TOKEN_LIT_FLOAT   = 259,
-    TOKEN_LIT_STR     = 260,
-    TOKEN_EOF         = 261,
-    TOKEN_COLON_EQUAL = 262,
+    TOKEN_IDENTIFIER    = 256,
+    TOKEN_FUNCTION      = 257,
+    TOKEN_LIT_INT       = 258,
+    TOKEN_LIT_FLOAT     = 259,
+    TOKEN_LIT_STR       = 260,
+    TOKEN_EOF           = 261,
+    TOKEN_PLUS_EQUAL    = 262,
+    TOKEN_MINUS_EQUAL   = 263,
+    TOKEN_DIV_EQUAL     = 264,
+    TOKEN_MUL_EQUAL     = 265,
+    TOKEN_OR_EQUAL      = 266,
+    TOKEN_AND_EQUAL     = 267,
+    TOKEN_EQUAL_EQUAL   = 268,
+    TOKEN_NOT_EQUAL     = 269,
+    TOKEN_BW_NOT_EQUAL  = 270,
+    TOKEN_BW_AND_EQAUL  = 271,
+    TOKEN_BW_OR_EQUAL   = 272,
+    TOKEN_BW_XOR_EQUAL  = 273,
+    TOKEN_LESS_EQUAL    = 274,
+    TOKEN_GREATER_EQUAL = 275,
+    TOKEN_MOD_EQUAL     = 276,
+    TOKEN_SHIFT_LEFT    = 277,
+    TOKEN_SHIFT_RIGHT   = 278,
+    TOKEN_AND           = 279,
+    TOKEN_OR            = 280,
+
+    TOKEN_INVALID       = -1024
 } Token_Type;
 
 typedef struct Token
@@ -79,12 +99,17 @@ typedef struct Lexer
     Allocator allocator;
 } Lexer;
 
-u64 ee_lex_parse_int(Str_View raw);
+static const Token _s_token_null = { .type = TOKEN_INVALID };
 
-Lexer ee_lex_new_file(const char* file_path, const Allocator* allocator);
-i32  ee_lex_skip_whitespace(Lexer* lex);
-i32  ee_lex_process_id(Lexer* lex);
-i32  ee_lex_process_literal(Lexer* lex);
+u64 ee_lex_parse_int(Str_View raw);
+f64 ee_lex_parse_float(Str_View raw);
+void ee_lex_debug_print_lit_val(const Token* token);
+
+Lexer ee_lex_new_file(const char* file_path, Allocator* allocator);
+i32 ee_lex_skip_whitespace(Lexer* lex);
+i32 ee_lex_process_id(Lexer* lex);
+i32 ee_lex_process_literal(Lexer* lex);
+void ee_lex_emit_after_equal(Lexer* lex, Token_Type token, Token_Type if_equal);
 void ee_lex_emit_token(Lexer* lex, Token_Type token_type, Str_View scratch);
 void ee_lex_emit_token_u64(Lexer* lex, Str_View scratch, u64 val);
 void ee_lex_emit_token_f64(Lexer* lex, Str_View scratch, f64 val);
@@ -131,6 +156,17 @@ EE_INLINE void ee_lex_advance(Lexer* lex, size_t count)
 EE_INLINE i32 ee_lex_check(const Lexer* lex, char pattern)
 {
     return ee_lex_peek(lex) == pattern;
+}
+
+EE_INLINE i32 ee_lex_match(const Lexer* lex, char pattern)
+{
+    if (ee_lex_peek(lex) == pattern)
+    {
+        ee_lex_advance(lex, 1);
+        return EE_TRUE;
+    }
+
+    return EE_FALSE;
 }
 
 EE_INLINE i32 ee_lex_check_many(const Lexer* lex, const char* pattern)

@@ -6,121 +6,187 @@
 #include "ee_array.h"
 #include "ee_string.h"
 
-#define EE_AST_LINKED_BUCKET_START_SIZE    (32)
 #define EE_AST_NODE_NULL                   ((Ast_Node_Handle)-1)
-
-static const Token TOKEN_STAB = { 0, .type = -1 };
-
-typedef enum Ast_Type
-{
-	NODE_LITERAL_EXPR    = 0,  // for example 5
-	NODE_BINARY_EXPR     = 1,  // 5 + a
-	NODE_FUNC_DEFN       = 2,  // fn name(x: f32, y: f32) -> f32
-	NODE_VAR_DECL        = 3,  // x: i32;
-	NODE_VAR_DEFN        = 4,  // x := 2; expands to x: i32 = 2;
-	NODE_ID_EXPR         = 5,  // x
-	NODE_STATEMENT_BLOCK = 6,  // { ... }
-	NODE_EOF             = 7
-} Ast_Type;
+#define EE_EXPR_PREC_MIN                   (-1024)
+#define EE_EXPR_PREC_MAX                   (1024)
 
 typedef enum Ast_Data_Type
 {
-	DTYPE_U8, DTYPE_U16, DTYPE_U32, DTYPE_U64,
-	DTYPE_S8, DTYPE_S16, DTYPE_S32, DTYPE_S64,
-	DTYPE_F32, DTYPE_F64,
-
+	DTYPE_U8      = 0, 
+	DTYPE_U16     = 1, 
+	DTYPE_U32     = 2, 
+	DTYPE_U64     = 3,
+	DTYPE_I8      = 4, 
+	DTYPE_I16     = 5, 
+	DTYPE_I32     = 6, 
+	DTYPE_I64     = 7,
+	DTYPE_F32     = 8, 
+	DTYPE_F64     = 9,
+	DTYPE_U8_REF  = 10, 
+	DTYPE_U16_REF = 11, 
+	DTYPE_U32_REF = 12, 
+	DTYPE_U64_REF = 13,
+	DTYPE_I8_REF  = 14, 
+	DTYPE_I16_REF = 15, 
+	DTYPE_I32_REF = 16, 
+	DTYPE_I64_REF = 17,
+	DTYPE_F32_REF = 18, 
+	DTYPE_F64_REF = 19,
+	DTYPE_COUNT,
 	// TODO(eesuck): other types
 } Ast_Data_Type;
 
-typedef enum Ast_Bin_Op_Type
+typedef enum Ast_Binop_Type
 {
-	BINOP_PLUS = 0,
-} Ast_Bin_Op_Type;
+	BINOP_PLUS          = 0,
+	BINOP_MINUS         = 1,
+	BINOP_MUL           = 2,
+	BINOP_DIV           = 3,
+	BINOP_MOD           = 4,
+	BINOP_AND           = 5,
+	BINOP_OR            = 6,
+	BINOP_BW_AND        = 7,
+	BINOP_BW_OR         = 8,
+	BINOP_BW_XOR        = 9,
+	BINOP_EQUAL         = 10,
+	BINOP_NOT_EQUAL     = 11,
+	BINOP_LESS_EQUAL    = 12,
+	BINOP_GREATER_EQUAL = 13,
+	BINOP_LESS          = 14,
+	BINOP_GREATER       = 15,
+	BINOP_SHIFT_LEFT    = 16,
+	BINOP_SHIFT_RIGHT   = 17,
+	BINOP_COUNT,
+} Ast_Binop_Type;
 
-typedef size_t Ast_Node_Handle;
+typedef enum Ast_Unop_Type
+{
+	UNOP_NOT    = 0,
+	UNOP_DEREF  = 1,
+	UNOP_REF    = 2,
+	UNOP_BW_NOT = 3,
+	UNOP_PLUS   = 4,
+	UNOP_MINUS  = 5,
+	UNOP_COUNT,
+} Ast_Unop_Type;
+
+typedef enum Ast_Type_Expr_Type
+{
+	TYPE_EXPR_FLAT   = 0,
+	TYPE_EXPR_NESTED = 1,
+} Ast_Type_Expr_Type;
+
+typedef enum Ast_Expr_Type
+{
+	EXPR_LIT       = 0,
+	EXPR_BINOP     = 1,
+	EXPR_IDENT     = 2,
+	EXPR_UNOP      = 3,
+	EXPR_FUNC_CALL = 4,
+	EXPR_ACCESS    = 5,
+	EXPR_INDEX     = 6,
+} Ast_Expr_Type;
+
+typedef i32 Ast_Precedence;
+
+// Type statics
+static const i32 _s_type_size_table[DTYPE_COUNT] = { 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+static const i32 _s_type_align_table[DTYPE_COUNT] = { 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+static const char* _s_type_name_table[DTYPE_COUNT] = { "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64",
+	"&u8", "&u16", "&u32", "&u64", "&i8", "&i16", "&i32", "&i64", "&f32", "&f64" };
+static const i32 _s_type_name_len_table[DTYPE_COUNT] = { 2, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 3, 4, 4, 4, 4, 4 };
+
+// Binop statics
+static const Ast_Precedence _s_op_binop_prec_table[BINOP_COUNT] = { 11, 11, 12, 12, 12, 4, 3, 7, 5, 6, 8, 8, 9, 9, 9, 9, 10, 10 };
+static const char* _s_op_binop_name_table[BINOP_COUNT] = { "+", "-", "*", "/", "%", "&&", "||", "&", "|", "^", "==", "!=", "<=", ">=", "<", ">", "<<", ">>" };
+static const Token_Type _s_op_binop_token_type_table[BINOP_COUNT] = { '+', '-', '*', '/', '%', TOKEN_AND, TOKEN_OR, '&', '|', '^', TOKEN_EQUAL_EQUAL, TOKEN_NOT_EQUAL, 
+	TOKEN_LESS_EQUAL, TOKEN_GREATER_EQUAL, '<', '>', TOKEN_SHIFT_LEFT, TOKEN_SHIFT_RIGHT};
+static const char* _s_op_binop_name_len_table[BINOP_COUNT] = { 1, 1, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 2, 2, 1, 1, 2, 2 };
+
+// Unop statics
+static const Ast_Precedence _s_op_unop_prec_table[UNOP_COUNT] = { 13, 13, 13, 13, 13, 13 };
+static const char* _s_op_unop_name_table[UNOP_COUNT] = { "!", "*", "&", "~", "+", "-", };
+static const i32 _s_op_unop_name_len_table[UNOP_COUNT] = { 1, 1, 1, 1, 1, 1 };
+static const Token_Type _s_op_unop_token_type_table[UNOP_COUNT] = { '!', '*', '&', '~', '+', '-' };
+
+static const Str_View _s_str_view_null = { 0 };
+
+typedef size_t Usize;
+
+typedef struct Ast_Expr Ast_Expr;
+typedef struct Ast_Stmt Ast_Stmt;
+typedef struct Ast_Node Ast_Node;
 
 typedef struct Ast_Type_Info
 {
-	Ast_Data_Type dtype;
+	Ast_Type_Expr_Type type;
+
+	union
+	{
+		Ast_Data_Type as_flat;
+		Array as_nested;
+	};
 } Ast_Type_Info;
 
-typedef struct Ast_Lit
+// TODO(eesuck): remove type info from var and just store it globaly
+typedef struct Ast_Lit_Expr
 {
 	Ast_Type_Info type_info;
+	const Token* token;
+} Ast_Lit_Expr;
+
+typedef struct Ast_Ident_Expr
+{
+	Ast_Type_Info type_info;
+	const Token* token;
+} Ast_Ident_Expr;
+
+typedef struct Ast_Binop_Expr
+{
+	Ast_Binop_Type type;
+	Ast_Expr* left;
+	Ast_Expr* right;
+} Ast_Binop_Expr;
+
+typedef struct Ast_Unop_Expr
+{
+	Ast_Unop_Type type;
+	Ast_Expr* expr;
+} Ast_Unop_Expr;
+
+typedef struct Ast_Func_Call_Expr
+{
+	Array args;
+	Ast_Expr* func;
+} Ast_Func_Call_Expr;
+
+typedef struct Ast_Access_Expr
+{
+	Ast_Expr* entity;
+	const Token* member;
+} Ast_Access_Expr;
+
+typedef struct Ast_Index_Expr
+{
+	Ast_Expr* entity;
+	Ast_Expr* index;
+} Ast_Index_Expr;
+
+typedef struct Ast_Expr
+{
+	Ast_Expr_Type type;
 
 	union
 	{
-		u8 as_u8; u16 as_u16; u32 as_u32; u64 as_u64;
-		i8 as_i8; i16 as_i16; i32 as_i32; i64 as_i64;
-		f32 as_f32; f64 as_f64;
+		Ast_Lit_Expr as_lit;
+		Ast_Ident_Expr as_ident;
+		Ast_Binop_Expr as_binop;
+		Ast_Unop_Expr as_unop;
+		Ast_Func_Call_Expr as_func_call;
+		Ast_Access_Expr as_access;
+		Ast_Index_Expr as_index;
 	};
-} Ast_Lit;
-
-typedef struct Ast_Id
-{
-	Ast_Type_Info type_info;
-	Str_View name;
-	Ast_Node_Handle value;
-} Ast_Id;
-
-typedef struct Ast_Binary_Expr
-{
-	Ast_Bin_Op_Type binop_type;
-
-	Ast_Node_Handle left;
-	Ast_Node_Handle right;
-} Ast_Binary_Expr;
-
-typedef struct Ast_Func_Defn
-{
-	Str_View name;
-	size_t ins_count;
-
-	Ast_Type_Info    out;
-	Ast_Node_Handle param_head;
-	Ast_Node_Handle body_head;
-} Ast_Func_Defn;
-
-typedef struct Ast_Var_Decl
-{
-	Ast_Id id;
-} Ast_Var_Decl;
-
-typedef struct Ast_Var_Defn
-{
-	Ast_Id id;
-	Ast_Node_Handle val;
-} Ast_Var_Defn;
-
-typedef struct Ast_Statement_Block
-{
-	size_t statements_count;
-	Ast_Node_Handle statements_head;
-} Ast_Statement_Block;
-
-typedef struct Ast_Node
-{
-	Ast_Type type;
-	Ast_Node_Handle prev;
-	Ast_Node_Handle next;
-
-	union
-	{
-		Ast_Lit as_lit;
-		Ast_Id as_id;
-		Ast_Binary_Expr as_binop;
-		Ast_Func_Defn as_func_defn;
-		Ast_Var_Decl as_var_decl;
-		Ast_Var_Defn as_var_defn;
-		Ast_Statement_Block as_block;
-	};
-} Ast_Node;
-
-typedef struct Ast_Node_Desc
-{
-	Ast_Node_Handle handle;
-	Ast_Node* node_ptr;
-} Ast_Node_Desc;
+} Ast_Expr;
 
 typedef struct Parser
 {
@@ -131,10 +197,56 @@ typedef struct Parser
 	const Array* tokens;
 } Parser;
 
-Parser ee_pars_new(const Array* tokens, const Allocator* allocator);
-Ast_Node_Desc ee_pars_emplace_node(Parser* pars, Ast_Type type, Ast_Node_Handle prev);
-Ast_Node_Handle ee_pars_id_decl(Parser* pars, Ast_Node_Handle prev);
-void ee_pars_run(Parser* pars);
+EE_INLINE i32 ee_op_prec(Ast_Binop_Type op)
+{
+	if (op == BINOP_COUNT)
+	{
+		return EE_EXPR_PREC_MIN - 1;
+	}
+
+	return _s_op_binop_prec_table[op];
+}
+
+EE_INLINE i32 ee_token_is_lit(const Token* token)
+{
+	return token->type == TOKEN_LIT_INT || token->type == TOKEN_LIT_FLOAT || token->type == TOKEN_LIT_STR;
+}
+
+Ast_Binop_Type ee_token_match_binop(const Token* token)
+{
+	if (token->type == TOKEN_INVALID)
+	{
+		return BINOP_COUNT;
+	}
+
+	for (Ast_Binop_Type binop = 0; binop < BINOP_COUNT; ++binop)
+	{
+		if (token->type == _s_op_binop_token_type_table[binop])
+		{
+			return binop;
+		}
+	}
+
+	return BINOP_COUNT;
+}
+
+Ast_Unop_Type ee_token_match_unop(const Token* token)
+{
+	if (token->type == TOKEN_INVALID)
+	{
+		return UNOP_COUNT;
+	}
+
+	for (Ast_Binop_Type unop = 0; unop < UNOP_COUNT; ++unop)
+	{
+		if (token->type == _s_op_unop_token_type_table[unop])
+		{
+			return unop;
+		}
+	}
+
+	return UNOP_COUNT;
+}
 
 EE_INLINE void ee_pars_advance(Parser* pars, size_t count)
 {
@@ -145,14 +257,20 @@ EE_INLINE void ee_pars_advance(Parser* pars, size_t count)
 
 EE_INLINE const Token* ee_pars_peek(const Parser* pars)
 {
-	// TODO(eesuck): safety checks
+	if (pars->pos >= ee_array_len(pars->tokens))
+	{
+		return &_s_token_null;
+	}
 
 	return (const Token*)ee_array_at(pars->tokens, pars->pos);
 }
 
 EE_INLINE const Token* ee_pars_peek_next(const Parser* pars, size_t count)
 {
-	// TODO(eesuck): safety checks
+	if (pars->pos + count >= ee_array_len(pars->tokens))
+	{
+		return &_s_token_null;
+	}
 
 	return (const Token*)ee_array_at(pars->tokens, pars->pos + count);
 }
@@ -204,8 +322,6 @@ EE_INLINE i32 ee_pars_match(Parser* pars, Token_Type pattern)
 
 EE_INLINE i32 ee_pars_check(Parser* pars, Token_Type pattern)
 {
-	EE_UNUSED(pars);
-
 	if (ee_pars_peek(pars)->type != pattern)
 	{
 		return EE_FALSE;
@@ -213,5 +329,19 @@ EE_INLINE i32 ee_pars_check(Parser* pars, Token_Type pattern)
 
 	return EE_TRUE;
 }
+
+Ast_Type_Info* ee_pars_type_info(Parser* pars);
+
+Ast_Expr* ee_pars_atom(Parser* pars);
+Ast_Expr* ee_pars_postfix(Parser* pars, Ast_Expr* atom);
+Ast_Expr* ee_pars_expr_1(Parser* pars, Ast_Expr* lhs, Ast_Precedence min_prec);
+Ast_Expr* ee_pars_expr(Parser* pars);
+
+void ee_pars_debug_print_type_info(Ast_Type_Info* root);
+void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent);
+i32 ee_pars_get_op_precedence(Ast_Binop_Type op);
+
+Parser ee_pars_new(const Array* tokens, Allocator* allocator);
+void ee_pars_run(Parser* pars);
 
 #endif // EE_PARSER_H

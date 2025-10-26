@@ -7,7 +7,37 @@ u64 ee_lex_parse_int(Str_View raw)
 	return atoll(raw.buffer);
 }
 
-Lexer ee_lex_new_file(const char* file_path, const Allocator* allocator)
+f64 ee_lex_parse_float(Str_View raw)
+{
+	// TODO(eesuck): make own faster atof
+
+	return atof(raw.buffer);
+}
+
+void ee_lex_debug_print_lit_val(const Token* token)
+{
+	switch (token->type)
+	{
+	case TOKEN_LIT_INT:
+	{
+		EE_PRINT("%llu", token->as_u64);
+	} break;
+	case TOKEN_LIT_FLOAT:
+	{
+		EE_PRINT("%f", token->as_f64);
+	} break;
+	case TOKEN_LIT_STR:
+	{
+		EE_ASSERT(0, "TODO string literal print");
+	} break;
+	default:
+	{
+		EE_ASSERT(0, "Invalid token type (%d) for debug print", token->type);
+	}
+	}
+}
+
+Lexer ee_lex_new_file(const char* file_path, Allocator* allocator)
 {
 	Lexer out = { 0 };
 
@@ -102,18 +132,27 @@ i32 ee_lex_process_id(Lexer* lex)
 
 i32 ee_lex_process_literal(Lexer* lex)
 {
+	size_t start_pos = lex->pos;
+
 	if (ee_is_digit(ee_lex_peek(lex)))
 	{
-		size_t start_pos = lex->pos;
 		ee_lex_advance(lex, 1);
 
 		while (ee_is_digit(ee_lex_peek(lex)))
 			ee_lex_advance(lex, 1);
 
-		if (ee_lex_peek(lex) == '.')
+		if (ee_lex_check(lex, '.'))
 		{
-			// TODO(eesuck): float literals
-			EE_ASSERT(0, "float literals not done yet");
+			ee_lex_advance(lex, 1);
+
+			while (ee_is_digit(ee_lex_peek(lex)))
+				ee_lex_advance(lex, 1);
+
+			Str_View f_str = ee_str_view_from_str(&lex->stream, start_pos, lex->pos - start_pos);
+
+			ee_lex_emit_token_f64(lex, f_str, ee_lex_parse_float(f_str));
+
+			return EE_TRUE;
 		}
 
 		Str_View str = ee_str_view_from_str(&lex->stream, start_pos, lex->pos - start_pos);
@@ -122,18 +161,44 @@ i32 ee_lex_process_literal(Lexer* lex)
 
 		return EE_TRUE;
 	}
-	else if (ee_lex_peek(lex) == '.')
+	else if (ee_lex_check(lex, '.') && ee_is_digit(ee_lex_peek_next(lex, 1)))
 	{
-		// TODO(eesuck): float literals
-		EE_ASSERT(0, "float literals not done yet");
+		ee_lex_advance(lex, 1);
+
+		while (ee_is_digit(ee_lex_peek(lex)))
+			ee_lex_advance(lex, 1);
+
+		Str_View f_str = ee_str_view_from_str(&lex->stream, start_pos, lex->pos - start_pos);
+
+		ee_lex_emit_token_f64(lex, f_str, ee_lex_parse_float(f_str));
+
+		return EE_TRUE;
 	}
-	else if (ee_lex_peek(lex) == '\"')
+	else if (ee_lex_check(lex, '"'))
 	{
 		// TODO(eesuck): string literals
 		EE_ASSERT(0, "string literals not done yet");
 	}
 
 	return EE_FALSE;
+}
+
+void ee_lex_emit_after_equal(Lexer* lex, Token_Type token, Token_Type if_equal)
+{
+	if (ee_lex_peek_next(lex, 1) == '=')
+	{
+		Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 2);
+
+		ee_lex_emit_token(lex, if_equal, scratch);
+		ee_lex_advance(lex, 2);
+	}
+	else
+	{
+		Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 1);
+
+		ee_lex_emit_token(lex, token, scratch);
+		ee_lex_advance(lex, 1);
+	}
 }
 
 void ee_lex_emit_token(Lexer* lex, Token_Type token_type, Str_View scratch)
@@ -206,45 +271,120 @@ void ee_lex_tokenize(Lexer* lex)
 		case '[':
 		case ']':
 		case ';':
+		case ':':
+		case ',':
+		case '.':
 		{
-			Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 2);
+			Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 1);
 
 			ee_lex_emit_token(lex, current, scratch);
 			ee_lex_advance(lex, 1);
 		} break;
 		case '+':
+		{
+			ee_lex_emit_after_equal(lex, current, TOKEN_PLUS_EQUAL);
+		} break;
+		case '-':
+		{
+			ee_lex_emit_after_equal(lex, current, TOKEN_MINUS_EQUAL);
+		} break;
+		case '*':
+		{
+			ee_lex_emit_after_equal(lex, current, TOKEN_MUL_EQUAL);
+		} break;
+		case '/':
+		{
+			ee_lex_emit_after_equal(lex, current, TOKEN_DIV_EQUAL);
+		} break;
 		case '=':
 		{
-			// TODO(eesuck) factor this out to conv function
-			if (ee_lex_peek_next(lex, 1) == '=')
+			ee_lex_emit_after_equal(lex, current, TOKEN_EQUAL_EQUAL);
+		} break;
+		case '!':
+		{
+			ee_lex_emit_after_equal(lex, current, TOKEN_EQUAL_EQUAL);
+		} break;
+		case '^':
+		{
+			ee_lex_emit_after_equal(lex, current, TOKEN_BW_XOR_EQUAL);
+		} break;
+		case '~':
+		{
+			ee_lex_emit_after_equal(lex, current, TOKEN_BW_NOT_EQUAL);
+		} break;
+		case '<':
+		{
+			if (ee_lex_peek_next(lex, 1) == '<')
 			{
-				// TODO(eesuck)
+				Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 2);
+
+				ee_lex_emit_token(lex, TOKEN_SHIFT_LEFT, scratch);
+				ee_lex_advance(lex, 2);
+
+				break;
+			}
+
+			ee_lex_emit_after_equal(lex, current, TOKEN_LESS_EQUAL);
+		} break;
+		case '>':
+		{
+			if (ee_lex_peek_next(lex, 1) == '>')
+			{
+				Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 2);
+
+				ee_lex_emit_token(lex, TOKEN_SHIFT_RIGHT, scratch);
+				ee_lex_advance(lex, 2);
+
+				break;
+			}
+
+			ee_lex_emit_after_equal(lex, current, TOKEN_GREATER_EQUAL);
+		} break;
+		case '%':
+		{
+			ee_lex_emit_after_equal(lex, current, TOKEN_MOD_EQUAL);
+		} break;
+		case '&':
+		{
+			if (ee_lex_peek_next(lex, 1) == '&' && ee_lex_peek_next(lex, 2) == '=')
+			{
+				Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 3);
+
+				ee_lex_emit_token(lex, TOKEN_AND_EQUAL, scratch);
+				ee_lex_advance(lex, 3);
+			}
+			else if (ee_lex_peek_next(lex, 1) == '&')
+			{
+				Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 2);
+
+				ee_lex_emit_token(lex, TOKEN_AND, scratch);
+				ee_lex_advance(lex, 2);
 			}
 			else
 			{
-				Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 1);
-
-				ee_lex_emit_token(lex, current, scratch);
-				ee_lex_advance(lex, 1);
+				ee_lex_emit_after_equal(lex, current, TOKEN_BW_XOR_EQUAL);
 			}
 		} break;
-		case ':':
+		case '|':
 		{
-			// TODO(eesuck) factor this out to conv function
-			//if (ee_lex_peek_next(lex, 1) == '=')
-			//{
-			//	Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 2);
+			if (ee_lex_peek_next(lex, 1) == '|' && ee_lex_peek_next(lex, 2) == '=')
+			{
+				Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 3);
 
-			//	ee_lex_emit_token(lex, TOKEN_COLON_EQUAL, scratch);
-			//	ee_lex_advance(lex, 2);
-			//}
-			//else
-			//{
-				Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 1);
+				ee_lex_emit_token(lex, TOKEN_OR_EQUAL, scratch);
+				ee_lex_advance(lex, 3);
+			}
+			else if (ee_lex_peek_next(lex, 1) == '|')
+			{
+				Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 2);
 
-				ee_lex_emit_token(lex, current, scratch);
-				ee_lex_advance(lex, 1);
-			//}
+				ee_lex_emit_token(lex, TOKEN_OR, scratch);
+				ee_lex_advance(lex, 2);
+			}
+			else
+			{
+				ee_lex_emit_after_equal(lex, current, TOKEN_BW_XOR_EQUAL);
+			}
 		} break;
 
 		default:

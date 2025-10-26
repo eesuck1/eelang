@@ -134,6 +134,9 @@
     <ClInclude Include="source\ee_lexer.h" />
     <ClInclude Include="source\ee_parser.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="todo.md" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
