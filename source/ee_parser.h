@@ -22,16 +22,6 @@ typedef enum Ast_Data_Type
 	DTYPE_I64     = 7,
 	DTYPE_F32     = 8, 
 	DTYPE_F64     = 9,
-	DTYPE_U8_REF  = 10, 
-	DTYPE_U16_REF = 11, 
-	DTYPE_U32_REF = 12, 
-	DTYPE_U64_REF = 13,
-	DTYPE_I8_REF  = 14, 
-	DTYPE_I16_REF = 15, 
-	DTYPE_I32_REF = 16, 
-	DTYPE_I64_REF = 17,
-	DTYPE_F32_REF = 18, 
-	DTYPE_F64_REF = 19,
 	DTYPE_COUNT,
 	// TODO(eesuck): other types
 } Ast_Data_Type;
@@ -63,7 +53,7 @@ typedef enum Ast_Unop_Type
 {
 	UNOP_NOT    = 0,
 	UNOP_DEREF  = 1,
-	UNOP_REF    = 2,
+	UNOP_PTR    = 2,
 	UNOP_BW_NOT = 3,
 	UNOP_PLUS   = 4,
 	UNOP_MINUS  = 5,
@@ -72,8 +62,9 @@ typedef enum Ast_Unop_Type
 
 typedef enum Ast_Type_Expr_Type
 {
-	TYPE_EXPR_FLAT   = 0,
-	TYPE_EXPR_NESTED = 1,
+	TYPE_FLAT  = 0,
+	TYPE_TUPLE = 1,
+	TYPE_PTR   = 2,
 } Ast_Type_Expr_Type;
 
 typedef enum Ast_Expr_Type
@@ -90,11 +81,10 @@ typedef enum Ast_Expr_Type
 typedef i32 Ast_Precedence;
 
 // Type statics
-static const i32 _s_type_size_table[DTYPE_COUNT] = { 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
-static const i32 _s_type_align_table[DTYPE_COUNT] = { 1, 2, 4, 8, 1, 2, 4, 8, 4, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
-static const char* _s_type_name_table[DTYPE_COUNT] = { "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64",
-	"&u8", "&u16", "&u32", "&u64", "&i8", "&i16", "&i32", "&i64", "&f32", "&f64" };
-static const i32 _s_type_name_len_table[DTYPE_COUNT] = { 2, 3, 3, 3, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 3, 4, 4, 4, 4, 4 };
+static const i32 _s_type_size_table[DTYPE_COUNT] = { 1, 2, 4, 8, 1, 2, 4, 8, 4, 8 };
+static const i32 _s_type_align_table[DTYPE_COUNT] = { 1, 2, 4, 8, 1, 2, 4, 8, 4, 8 };
+static const char* _s_type_name_table[DTYPE_COUNT] = { "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64" };
+static const i32 _s_type_name_len_table[DTYPE_COUNT] = { 2, 3, 3, 3, 2, 3, 3, 3, 3, 3 };
 
 // Binop statics
 static const Ast_Precedence _s_op_binop_prec_table[BINOP_COUNT] = { 11, 11, 12, 12, 12, 4, 3, 7, 5, 6, 8, 8, 9, 9, 9, 9, 10, 10 };
@@ -124,7 +114,8 @@ typedef struct Ast_Type_Info
 	union
 	{
 		Ast_Data_Type as_flat;
-		Array as_nested;
+		Array as_tuple;
+		struct Ast_Type_Info* as_ptr_to;
 	};
 } Ast_Type_Info;
 

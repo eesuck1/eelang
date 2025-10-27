@@ -29,16 +29,16 @@ Parser ee_pars_new(const Array* tokens, const Allocator* allocator)
 
 Ast_Type_Info* ee_pars_type_info(Parser* pars)
 {
-	Ast_Type_Info* type_info = (Ast_Type_Info*)pars->allocator.alloc_fn(&pars->allocator, sizeof(*type_info));
+	Ast_Type_Info* type_info = pars->allocator.alloc_fn(&pars->allocator, sizeof(*type_info));
 	EE_ASSERT(type_info != NULL, "Unable to allocate memory");
 
 	if (ee_pars_check(pars, TOKEN_IDENTIFIER))
 	{
 		const Token* token = ee_pars_eat(pars);
 
-		type_info->type = TYPE_EXPR_FLAT;
+		type_info->type = TYPE_FLAT;
 
-		for (Ast_Data_Type dtype = DTYPE_U8; dtype < DTYPE_U8_REF; ++dtype)
+		for (Ast_Data_Type dtype = DTYPE_U8; dtype < DTYPE_COUNT; ++dtype)
 		{
 			if (memcmp(token->scratch.buffer, _s_type_name_table[dtype], _s_type_name_len_table[dtype]) == 0)
 			{
@@ -47,37 +47,38 @@ Ast_Type_Info* ee_pars_type_info(Parser* pars)
 			}
 		}
 	}
-	else if (ee_pars_match(pars, '&'))
+	else if (ee_pars_match(pars, '('))
 	{
-		const Token* token = ee_pars_eat(pars);
-
-		type_info->type = TYPE_EXPR_FLAT;
-
-		for (Ast_Data_Type dtype = DTYPE_U8; dtype < DTYPE_U8_REF; ++dtype)
-		{
-			if (memcmp(token->scratch.buffer, _s_type_name_table[dtype], _s_type_name_len_table[dtype]) == 0)
-			{
-				type_info->as_flat = DTYPE_U8_REF + dtype;
-				break;
-			}
-		}
-	}
-	else if (ee_pars_match_or_panic(pars, '(', "The type should be specified either as primitive type or as type expression in '(...)'"))
-	{
-		type_info->type = TYPE_EXPR_NESTED;
-		type_info->as_nested = ee_array_new(8, sizeof(type_info), NULL);
+		type_info->type = TYPE_TUPLE;
+		type_info->as_tuple = ee_array_new(8, sizeof(type_info), NULL);
 
 		while (!ee_pars_match(pars, ')'))
 		{
 			Ast_Type_Info* member = ee_pars_type_info(pars);
 
-			ee_array_push(&type_info->as_nested, EE_RECAST_U8(member));
+			ee_array_push(&type_info->as_tuple, EE_RECAST_U8(member));
 
 			if (ee_pars_match(pars, ')'))
 				break;
 
 			ee_pars_match_or_panic(pars, ',', "Expected comma as separator between type expression members");
 		}
+	}
+	else if (ee_pars_match(pars, '&'))
+	{
+		type_info->type = TYPE_PTR;
+		type_info->as_ptr_to = ee_pars_type_info(pars);
+	}
+	else if (ee_pars_match(pars, TOKEN_AND))
+	{
+		Ast_Type_Info* inner_ptr = pars->allocator.alloc_fn(&pars->allocator, sizeof(*inner_ptr));
+		EE_ASSERT(inner_ptr != NULL, "Unable to allocate memory");
+
+		inner_ptr->type = TYPE_PTR;
+		inner_ptr->as_ptr_to = ee_pars_type_info(pars);
+
+		type_info->type = TYPE_PTR;
+		type_info->as_ptr_to = inner_ptr;
 	}
 	else
 	{
@@ -100,7 +101,7 @@ Ast_Expr* ee_pars_atom(Parser* pars)
 	{
 		atom->type = EXPR_LIT;
 		atom->as_lit.token = token;
-		atom->as_lit.type_info.type = TYPE_EXPR_FLAT;
+		atom->as_lit.type_info.type = TYPE_TUPLE;
 
 		switch (atom->as_lit.token->type)
 		{
@@ -256,25 +257,30 @@ void ee_pars_debug_print_type_info(Ast_Type_Info* root)
 {
 	EE_ASSERT(root != NULL, "Trying to print NULL type info root");
 
-	if (root->type == TYPE_EXPR_FLAT)
+	if (root->type == TYPE_FLAT)
 	{
 		EE_PRINT("TYPE: %s", _s_type_name_table[root->as_flat]);
 	}
-	else if (root->type == TYPE_EXPR_NESTED)
+	else if (root->type == TYPE_TUPLE)
 	{
 		EE_PRINT("(");
 
-		Ast_Type_Info** members = (Ast_Type_Info**)root->as_nested.buffer;
+		Ast_Type_Info** members = (Ast_Type_Info**)root->as_tuple.buffer;
 
-		for (size_t i = 0; i < ee_array_len(&root->as_nested); ++i)
+		for (size_t i = 0; i < ee_array_len(&root->as_tuple); ++i)
 		{
 			ee_pars_debug_print_type_info(members[i]);
 			
-			if (i != ee_array_len(&root->as_nested) - 1)
+			if (i != ee_array_len(&root->as_tuple) - 1)
 				EE_PRINT(", ");
 		}
 
 		EE_PRINT(")");
+	}
+	else if (root->type == TYPE_PTR)
+	{
+		EE_PRINT("&");
+		ee_pars_debug_print_type_info(root->as_ptr_to);
 	}
 }
 
@@ -433,10 +439,6 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 		EE_ASSERT(0, "Unknown expression type (%d)", expr->type);
 	}
 	}
-}
-
-i32 ee_pars_get_op_precedence(Ast_Binop_Type op)
-{
 }
 
 void ee_pars_run(Parser* pars)
