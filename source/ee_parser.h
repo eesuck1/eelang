@@ -198,7 +198,7 @@ EE_INLINE i32 ee_op_prec(Ast_Binop_Type op)
 
 EE_INLINE i32 ee_token_is_lit(const Token* token)
 {
-	return token->type == TOKEN_LIT_INT || token->type == TOKEN_LIT_FLOAT || token->type == TOKEN_LIT_STR;
+	return (token->type == TOKEN_LIT_INT) || (token->type == TOKEN_LIT_FLOAT) || (token->type == TOKEN_LIT_STR);
 }
 
 Ast_Binop_Type ee_token_match_binop(const Token* token)
@@ -226,7 +226,7 @@ Ast_Unop_Type ee_token_match_unop(const Token* token)
 		return UNOP_COUNT;
 	}
 
-	for (Ast_Binop_Type unop = 0; unop < UNOP_COUNT; ++unop)
+	for (Ast_Unop_Type unop = 0; unop < UNOP_COUNT; ++unop)
 	{
 		if (token->type == _s_op_unop_token_type_table[unop])
 		{

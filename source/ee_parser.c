@@ -51,7 +51,7 @@ Ast_Type_Info* ee_pars_type_info(Parser* pars)
 	else if (ee_pars_match(pars, '('))
 	{
 		type_info->type = TYPE_TUPLE;
-		type_info->as_tuple = ee_array_new(8, sizeof(type_info), NULL);
+		type_info->as_tuple = ee_array_new(8, sizeof(type_info), &pars->allocator);
 
 		while (!ee_pars_match(pars, ')'))
 		{
@@ -391,10 +391,12 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 			EE_PRINT("  ");
 		}
 
+		EE_PRINT("MEMBER: ");
 		for (size_t i = 0; i < expr->as_access.member->scratch.len; ++i)
 		{
-			EE_PRINT("MEMBER: %c", expr->as_access.member->scratch.buffer[i]);
+			EE_PRINT("%c", expr->as_access.member->scratch.buffer[i]);
 		}
+		EE_PRINTLN("");
 	} break;
 	case EXPR_INDEX:
 	{

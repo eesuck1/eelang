@@ -89,7 +89,6 @@ typedef struct Token
 
 typedef struct Lexer
 {
-    Arena tokens_parsed;
     Array tokens;
 
     Str stream;

@@ -2,16 +2,37 @@
 
 u64 ee_lex_parse_int(Str_View raw)
 {
-	// TODO(eesuck): make own faster atoll
+	i64 out = 0;
+	i64 sign = 1;
+	size_t i = 0;
 
-	return atoll(raw.buffer);
+	switch (raw.buffer[0])
+	{
+	case '-': i++; sign = -1; break;
+	case '+': i++; break;
+	}
+
+	for (; i < raw.len; ++i)
+	{
+		out = 10 * out + (i64)(raw.buffer[i] - '0');
+	}
+
+	if (out < 0)
+	{
+		out = 0;
+	}
+
+	return out * sign;
 }
 
 f64 ee_lex_parse_float(Str_View raw)
 {
-	// TODO(eesuck): make own faster atof
+	char temp_buffer[1024];
 
-	return atof(raw.buffer);
+	memcpy(temp_buffer, raw.buffer, raw.len);
+	temp_buffer[raw.len] = '\0';
+
+	return atof(temp_buffer);
 }
 
 void ee_lex_debug_print_lit_val(const Token* token)
@@ -57,9 +78,8 @@ Lexer ee_lex_new_file(const char* file_path, Allocator* allocator)
 	EE_ASSERT(out.allocator.realloc_fn != NULL, "Trying to set NULL realloc callback");
 	EE_ASSERT(out.allocator.free_fn != NULL, "Trying to set NULL free callback");
 
-	out.stream = ee_str_from_file(file_path, EE_STR_FILE_READ_BYTES, allocator);
-	out.tokens_parsed = ee_arena_new(out.stream.top, EE_LEXER_DEF_REWIND, allocator);
-	out.tokens = ee_array_new(EE_MAX(out.stream.top / 3, 32), sizeof(Token), allocator);
+	out.stream = ee_str_from_file(file_path, EE_STR_FILE_READ_BYTES, &out.allocator);
+	out.tokens = ee_array_new(EE_MAX(out.stream.top / 3, 32), sizeof(Token), &out.allocator);
 
 	out.pos = 0;
 	out.file_path = file_path;
@@ -302,7 +322,7 @@ void ee_lex_tokenize(Lexer* lex)
 		} break;
 		case '!':
 		{
-			ee_lex_emit_after_equal(lex, current, TOKEN_EQUAL_EQUAL);
+			ee_lex_emit_after_equal(lex, current, TOKEN_NOT_EQUAL);
 		} break;
 		case '^':
 		{

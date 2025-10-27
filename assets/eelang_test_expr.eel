@@ -1,1 +1,3 @@
-foo(a, b)[2].c(f)
+((!flag && ~mask) || ((+x * -y + 3) / (z % 2)) || (((a & b) | (c ^ d)) && ((i << 2) >> j)) || (m == n) || (p != q) || (r <= s) || (t >= u) || (v < w) || (x > y)) && 
+obj.method(hello, arr[i + 1].field, &buf[foo(x, y)], 
+(*ptr).member)[bar.qux - 42 + (3 << 1)].name.call(3.14)
