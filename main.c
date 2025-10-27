@@ -6,7 +6,7 @@
 
 int main()
 {
-	const char* file_path = "assets/eelang_test_expr.eel";
+	const char* file_path = "assets/eelang_test_let.eel";
 
 	Lexer lex = ee_lex_new_file(file_path, NULL);
 
@@ -17,9 +17,13 @@ int main()
 	//Ast_Type_Info* t = ee_pars_type_info(&pars);
 
 	//ee_pars_debug_print_type_info(t, 0);
-	Ast_Expr* res_0 = ee_pars_expr(&pars);
-	
-	ee_pars_debug_print_expr(res_0, 0);
+	//Ast_Expr* res_0 = ee_pars_expr(&pars);
+	//
+	//ee_pars_debug_print_expr(res_0, 0);
+
+	Ast_Stmt* st = ee_pars_stmt(&pars);
+
+	ee_pars_debug_print_stmt(st, 0);
 
 	return 0;
 }

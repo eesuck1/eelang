@@ -5,6 +5,7 @@
 
 #include "ee_array.h"
 #include "ee_string.h"
+#include "ee_dict.h"
 
 #define EE_AST_NODE_NULL                   ((Ast_Node_Handle)-1)
 #define EE_EXPR_PREC_MIN                   (-1024)
@@ -46,6 +47,8 @@ typedef enum Ast_Binop_Type
 	BINOP_GREATER       = 15,
 	BINOP_SHIFT_LEFT    = 16,
 	BINOP_SHIFT_RIGHT   = 17,
+	BINOP_CAST          = 18,
+	BINOP_RANGE         = 19,
 	BINOP_COUNT,
 } Ast_Binop_Type;
 
@@ -78,6 +81,23 @@ typedef enum Ast_Expr_Type
 	EXPR_INDEX     = 6,
 } Ast_Expr_Type;
 
+typedef enum Ast_Stmt_Type
+{
+	STMT_LET    = 0,
+	STMT_BLOCK  = 1,
+	STMT_IF     = 2,
+	STMT_FOR    = 3,
+	STMT_WHILE  = 4,
+	STMT_FN     = 5,
+	STMT_RETURN = 6,
+	STMT_MATCH  = 7,
+	STMT_STRUCT = 8,
+	STMT_ENUM   = 9,
+	STMT_UNION  = 10,
+	STMT_ASSIGN = 11,
+	STMT_EXPR   = 12,
+} Ast_Stmt_Type;
+
 typedef i32 Ast_Precedence;
 
 // Type statics
@@ -87,11 +107,11 @@ static const char* _s_type_name_table[DTYPE_COUNT] = { "u8", "u16", "u32", "u64"
 static const i32 _s_type_name_len_table[DTYPE_COUNT] = { 2, 3, 3, 3, 2, 3, 3, 3, 3, 3 };
 
 // Binop statics
-static const Ast_Precedence _s_op_binop_prec_table[BINOP_COUNT] = { 11, 11, 12, 12, 12, 4, 3, 7, 5, 6, 8, 8, 9, 9, 9, 9, 10, 10 };
-static const char* _s_op_binop_name_table[BINOP_COUNT] = { "+", "-", "*", "/", "%", "&&", "||", "&", "|", "^", "==", "!=", "<=", ">=", "<", ">", "<<", ">>" };
+static const Ast_Precedence _s_op_binop_prec_table[BINOP_COUNT] = { 11, 11, 12, 12, 12, 4, 3, 7, 5, 6, 8, 8, 9, 9, 9, 9, 10, 10, 1, 0 };
+static const char* _s_op_binop_name_table[BINOP_COUNT] = { "+", "-", "*", "/", "%", "&&", "||", "&", "|", "^", "==", "!=", "<=", ">=", "<", ">", "<<", ">>", "as", ".." };
 static const Token_Type _s_op_binop_token_type_table[BINOP_COUNT] = { '+', '-', '*', '/', '%', TOKEN_AND, TOKEN_OR, '&', '|', '^', TOKEN_EQUAL_EQUAL, TOKEN_NOT_EQUAL, 
-	TOKEN_LESS_EQUAL, TOKEN_GREATER_EQUAL, '<', '>', TOKEN_SHIFT_LEFT, TOKEN_SHIFT_RIGHT};
-static const char* _s_op_binop_name_len_table[BINOP_COUNT] = { 1, 1, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 2, 2, 1, 1, 2, 2 };
+	TOKEN_LESS_EQUAL, TOKEN_GREATER_EQUAL, '<', '>', TOKEN_SHIFT_LEFT, TOKEN_SHIFT_RIGHT, TOKEN_AS, TOKEN_RANGE };
+static const i32 _s_op_binop_name_len_table[BINOP_COUNT] = { 1, 1, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2 };
 
 // Unop statics
 static const Ast_Precedence _s_op_unop_prec_table[UNOP_COUNT] = { 13, 13, 13, 13, 13, 13 };
@@ -177,10 +197,63 @@ typedef struct Ast_Expr
 	};
 } Ast_Expr;
 
+typedef struct Ast_Let_Stmt
+{
+	const Token* ident;
+	Ast_Expr* val;
+} Ast_Let_Stmt;
+
+typedef struct Ast_Assign_Stmt
+{
+	const Token* ident;
+	Ast_Expr* val;
+} Ast_Assign_Stmt;
+
+typedef struct Ast_Block_Stmt
+{
+	Array stmts;
+} Ast_Block_Stmt;
+
+typedef struct Ast_Expr_Stmt
+{
+	Ast_Expr* expr;
+} Ast_Expr_Stmt;
+
+typedef struct Ast_If_Stmt
+{
+	Ast_Expr* cond;
+	Ast_Block_Stmt* if_block;
+	Ast_Block_Stmt* else_block;
+} Ast_If_Stmt;
+
+typedef struct Ast_For_Stmt
+{
+	const Token* it;
+	Ast_Expr* range;
+	Ast_Block_Stmt* body;
+} Ast_For_Stmt;
+
+typedef struct Ast_Stmt
+{
+	Ast_Stmt_Type type;
+
+	union
+	{
+		Ast_Let_Stmt as_let;
+		Ast_Block_Stmt as_block;
+		Ast_Assign_Stmt as_assign;
+		Ast_Expr_Stmt as_expr;
+		Ast_If_Stmt as_if;
+		Ast_For_Stmt as_for;
+	};
+} Ast_Stmt;
+
 typedef struct Parser
 {
 	size_t pos;
 	Array nodes;
+	Dict var_types_table;
+	Dict types_table;
 	Allocator allocator;
 	
 	const Array* tokens;
@@ -326,10 +399,13 @@ Ast_Expr* ee_pars_postfix(Parser* pars, Ast_Expr* atom);
 Ast_Expr* ee_pars_expr_1(Parser* pars, Ast_Expr* lhs, Ast_Precedence min_prec);
 Ast_Expr* ee_pars_expr(Parser* pars);
 
+Ast_Stmt* ee_pars_stmt(Parser* pars);
+
 void ee_pars_debug_print_type_info(Ast_Type_Info* root, size_t indent);
 void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent);
+void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent);
 
-Parser ee_pars_new(const Array* tokens, Allocator* allocator);
+Parser ee_pars_new(const Array* tokens, const Allocator* allocator);
 void ee_pars_run(Parser* pars);
 
 #endif // EE_PARSER_H

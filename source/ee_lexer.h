@@ -11,23 +11,6 @@
 #define EE_LEXER_DEF_REWIND    (64)
 #define EE_MAX(a, b)           ((a) > (b) ? (a) : (b))
 
-#define EE_LEX_FN_STR          ("fn")
-
-EE_INLINE i32 ee_is_ident_start(char c)
-{
-    return (c >= 'A' && c <= 'Z') ||
-           (c >= 'a' && c <= 'z') ||
-           (c == '_');
-}
-
-EE_INLINE i32 ee_is_ident_continue(char c)
-{
-    return (c >= 'A' && c <= 'Z') ||
-           (c >= 'a' && c <= 'z') ||
-           (c >= '0' && c <= '9') ||
-           (c == '_');
-}
-
 EE_INLINE i32 ee_is_alpha(char c)
 {
     char m_c = c & EE_ALPHA_BIT_MASK;
@@ -35,9 +18,24 @@ EE_INLINE i32 ee_is_alpha(char c)
     return m_c >= 'A' && m_c <= 'Z';
 }
 
+EE_INLINE i32 ee_is_ident_start(char c)
+{
+    return ee_is_alpha(c) || (c == '_');
+}
+
 EE_INLINE i32 ee_is_digit(char c)
 {
     return (c >= '0' && c <= '9');
+}
+
+EE_INLINE i32 ee_is_hex_digit(char c)
+{
+    return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+}
+
+EE_INLINE i32 ee_is_ident_continue(char c)
+{
+    return ee_is_alpha(c) || ee_is_digit(c) || (c == '_');
 }
 
 typedef enum Token_Type
@@ -69,6 +67,26 @@ typedef enum Token_Type
     TOKEN_SHIFT_RIGHT   = 278,
     TOKEN_AND           = 279,
     TOKEN_OR            = 280,
+    TOKEN_LET           = 281,
+    TOKEN_AS            = 282,
+    TOKEN_IF            = 283,
+    TOKEN_FOR           = 284,
+    TOKEN_WHILE         = 285,
+    TOKEN_CONST         = 286,
+    TOKEN_BREAK         = 287,
+    TOKEN_CONTINUE      = 288,
+    TOKEN_ELSE          = 289,
+    TOKEN_NULL          = 290,
+    TOKEN_RETURN        = 291,
+    TOKEN_STRUCT        = 292,
+    TOKEN_UNION         = 293,
+    TOKEN_ENUM          = 294,
+    TOKEN_MATCH         = 295,
+    TOKEN_CASE          = 296,
+    TOKEN_TRUE          = 297,
+    TOKEN_FALSE         = 298,
+    TOKEN_RANGE         = 299,
+    TOKEN_IN            = 300,
 
     TOKEN_INVALID       = -1024
 } Token_Type;

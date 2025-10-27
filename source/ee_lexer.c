@@ -35,6 +35,80 @@ f64 ee_lex_parse_float(Str_View raw)
 	return atof(temp_buffer);
 }
 
+Str_View ee_lex_parse_str(Lexer* lex, Str_View raw)
+{
+	Str_View out = { 0 };
+
+	char* buffer = lex->allocator.alloc_fn(&lex->allocator, raw.len);
+	size_t i = 0;
+
+	out.len = 0;
+	out.buffer = (const char*)buffer;
+
+	while (i < raw.len)
+	{
+		char c = raw.buffer[i];
+
+		if ((i == 0) || (i == raw.len - 1))
+		{
+			EE_ASSERT(c == '"', "Expected '\"' at the start and at the end of a string");
+			i++;
+
+			continue;
+		}
+
+		if (c == '\\')
+		{
+			EE_ASSERT(i < raw.len - 2, "Invalid string escape sequence, putting '\\' here will result in unmatched string");
+
+			switch (raw.buffer[i + 1])
+			{
+			case 'n':  buffer[out.len] = '\n'; i += 2; break;
+			case 't':  buffer[out.len] = '\t'; i += 2; break;
+			case 'r':  buffer[out.len] = '\r'; i += 2; break;
+			case '\\': buffer[out.len] = '\\'; i += 2; break;
+			case '\'': buffer[out.len] = '\''; i += 2; break;
+			case '"':  buffer[out.len] = '"';  i += 2; break;
+			case 'x':
+			{
+				EE_ASSERT(i < raw.len - 4, "Invalid length for string with '\\x' escape character");
+				EE_ASSERT(ee_is_hex_digit(raw.buffer[i + 2]) && ee_is_hex_digit(raw.buffer[i + 3]), 
+					"Invalid character after '\\x' escape character, should be format '\\xFF' with strictly 2 characters, but \\x%c%c given", raw.buffer[i + 2], raw.buffer[i + 3]);
+
+				u8 byte = 0;
+
+				char high = raw.buffer[i + 2];
+				char low  = raw.buffer[i + 3];
+
+				if (high >= '0' && high <= '9') byte += 16 * (high - '0');
+				else if (high >= 'a' && high <= 'f') byte += 16 * (high - 'a' + 10);
+				else if (high >= 'A' && high <= 'F') byte += 16 * (high - 'A' + 10);
+
+				if (low >= '0' && low <= '9') byte += (low - '0');
+				else if (low >= 'a' && low <= 'f') byte += (low - 'a' + 10);
+				else if (low >= 'A' && low <= 'F') byte += (low - 'A' + 10);
+
+				buffer[out.len] = byte;
+				i += 4;
+			} break;
+			default:
+			{
+				EE_ASSERT(0, "Invalid escape sequence character: (%c)", raw.buffer[i + 1]);
+			} break;
+			}
+		}
+		else
+		{
+			buffer[out.len] = c;
+			i++;
+		}
+
+		out.len++;
+	}
+
+	return out;
+}
+
 void ee_lex_debug_print_lit_val(const Token* token)
 {
 	switch (token->type)
@@ -49,7 +123,7 @@ void ee_lex_debug_print_lit_val(const Token* token)
 	} break;
 	case TOKEN_LIT_STR:
 	{
-		EE_ASSERT(0, "TODO string literal print");
+		ee_str_view_print(token->as_str_view);
 	} break;
 	default:
 	{
@@ -133,8 +207,61 @@ i32 ee_lex_process_id(Lexer* lex)
 		{
 		case 2:
 		{
-			if (memcmp(str.buffer, EE_LEX_FN_STR, sizeof(EE_LEX_FN_STR) - 1) == 0)
+			if (memcmp(str.buffer, "fn", 2) == 0)
 				type = TOKEN_FUNCTION;
+			else if (memcmp(str.buffer, "as", 2) == 0)
+				type = TOKEN_AS;
+			else if (memcmp(str.buffer, "if", 2) == 0)
+				type = TOKEN_IF;
+			else if (memcmp(str.buffer, "in", 2) == 0)
+				type = TOKEN_IN;
+		} break;
+		case 3:
+		{
+			if (memcmp(str.buffer, "let", 3) == 0)
+				type = TOKEN_LET;
+			else if (memcmp(str.buffer, "for", 3) == 0)
+				type = TOKEN_FOR;
+		} break;
+		case 4:
+		{
+			if (memcmp(str.buffer, "else", 4) == 0)
+				type = TOKEN_ELSE;
+			else if (memcmp(str.buffer, "enum", 4) == 0)
+				type = TOKEN_ENUM;
+			else if (memcmp(str.buffer, "case", 4) == 0)
+				type = TOKEN_CASE;
+			else if (memcmp(str.buffer, "true", 4) == 0)
+				type = TOKEN_TRUE;
+			else if (memcmp(str.buffer, "null", 4) == 0)
+				type = TOKEN_NULL;
+		} break;
+		case 5:
+		{
+			if (memcmp(str.buffer, "while", 5) == 0)
+				type = TOKEN_WHILE;
+			else if (memcmp(str.buffer, "const", 5) == 0)
+				type = TOKEN_CONST;
+			else if (memcmp(str.buffer, "break", 5) == 0)
+				type = TOKEN_BREAK;
+			else if (memcmp(str.buffer, "union", 5) == 0)
+				type = TOKEN_UNION;
+			else if (memcmp(str.buffer, "match", 5) == 0)
+				type = TOKEN_MATCH;
+			else if (memcmp(str.buffer, "false", 5) == 0)
+				type = TOKEN_FALSE;
+		} break;
+		case 6:
+		{
+			if (memcmp(str.buffer, "return", 6) == 0)
+				type = TOKEN_RETURN;
+			else if (memcmp(str.buffer, "struct", 5) == 0)
+				type = TOKEN_STRUCT;
+		} break;
+		case 8:
+		{
+			if (memcmp(str.buffer, "continue", 8) == 0)
+				type = TOKEN_CONTINUE;
 		} break;
 		default: break;
 		}
@@ -161,7 +288,7 @@ i32 ee_lex_process_literal(Lexer* lex)
 		while (ee_is_digit(ee_lex_peek(lex)))
 			ee_lex_advance(lex, 1);
 
-		if (ee_lex_check(lex, '.'))
+		if (ee_lex_check(lex, '.') && ee_lex_peek_next(lex, 1) != '.')
 		{
 			ee_lex_advance(lex, 1);
 
@@ -194,10 +321,29 @@ i32 ee_lex_process_literal(Lexer* lex)
 
 		return EE_TRUE;
 	}
-	else if (ee_lex_check(lex, '"'))
+	else if (ee_lex_match(lex, '"'))
 	{
-		// TODO(eesuck): string literals
-		EE_ASSERT(0, "string literals not done yet");
+		while (!ee_lex_end(lex))
+		{
+			if (ee_lex_peek(lex) == '\\' && ee_lex_peek_next(lex, 1) == '"')
+			{
+				ee_lex_advance(lex, 2);
+			}
+			else if (ee_lex_match(lex, '"'))
+			{
+				break;
+			}
+			else
+			{
+				ee_lex_advance(lex, 1);
+			}
+		}
+
+		Str_View f_str = ee_str_view_from_str(&lex->stream, start_pos, lex->pos - start_pos);
+
+		ee_lex_emit_token_str_view(lex, TOKEN_LIT_STR, f_str, ee_lex_parse_str(lex, f_str));
+
+		return EE_TRUE;
 	}
 
 	return EE_FALSE;
@@ -293,7 +439,6 @@ void ee_lex_tokenize(Lexer* lex)
 		case ';':
 		case ':':
 		case ',':
-		case '.':
 		{
 			Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 1);
 
@@ -331,6 +476,23 @@ void ee_lex_tokenize(Lexer* lex)
 		case '~':
 		{
 			ee_lex_emit_after_equal(lex, current, TOKEN_BW_NOT_EQUAL);
+		} break;
+		case '.':
+		{
+			if (ee_lex_peek_next(lex, 1) == '.')
+			{
+				Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 2);
+
+				ee_lex_emit_token(lex, TOKEN_RANGE, scratch);
+				ee_lex_advance(lex, 2);
+			}
+			else
+			{
+				Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 1);
+
+				ee_lex_emit_token(lex, current, scratch);
+				ee_lex_advance(lex, 1);
+			}
 		} break;
 		case '<':
 		{
