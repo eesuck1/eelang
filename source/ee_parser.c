@@ -37,15 +37,16 @@ Ast_Type_Info* ee_pars_type_info(Parser* pars)
 		const Token* token = ee_pars_eat(pars);
 
 		type_info->type = TYPE_FLAT;
+		type_info->as_flat = token;
 
-		for (Ast_Data_Type dtype = DTYPE_U8; dtype < DTYPE_COUNT; ++dtype)
-		{
-			if (memcmp(token->scratch.buffer, _s_type_name_table[dtype], _s_type_name_len_table[dtype]) == 0)
-			{
-				type_info->as_flat = dtype;
-				break;
-			}
-		}
+		//for (Ast_Data_Type dtype = DTYPE_U8; dtype < DTYPE_COUNT; ++dtype)
+		//{
+		//	if (memcmp(token->scratch.buffer, _s_type_name_table[dtype], _s_type_name_len_table[dtype]) == 0)
+		//	{
+		//		type_info->as_flat = dtype;
+		//		break;
+		//	}
+		//}
 	}
 	else if (ee_pars_match(pars, '('))
 	{
@@ -101,31 +102,11 @@ Ast_Expr* ee_pars_atom(Parser* pars)
 	{
 		atom->type = EXPR_LIT;
 		atom->as_lit.token = token;
-		atom->as_lit.type_info.type = TYPE_TUPLE;
-
-		switch (atom->as_lit.token->type)
-		{
-		case TOKEN_LIT_INT: atom->as_lit.type_info.as_flat = DTYPE_U64; break;
-		case TOKEN_LIT_FLOAT: atom->as_lit.type_info.as_flat = DTYPE_F64; break;
-		case TOKEN_LIT_STR:
-		{
-			EE_ASSERT(0, "string literals not done yet");
-			return NULL;
-		} break;
-		default:
-		{
-			EE_ASSERT(0, "Invalid token type for parsing literal (%d)", atom->as_lit.token->type);
-			return NULL;
-		}
-		}
 	}
 	else if (token->type == TOKEN_IDENTIFIER)
 	{
 		atom->type = EXPR_IDENT;
 		atom->as_ident.token = token;
-
-		// TODO(eesuck): possibly could be global dict with type info
-		atom->as_ident.type_info = (Ast_Type_Info){ 0 };
 	}
 	else if (token->type == '(')
 	{
@@ -253,34 +234,47 @@ Ast_Expr* ee_pars_expr(Parser* pars)
 	return ee_pars_expr_1(pars, lhs, EE_EXPR_PREC_MIN);
 }
 
-void ee_pars_debug_print_type_info(Ast_Type_Info* root)
+void ee_pars_debug_print_type_info(Ast_Type_Info* root, size_t indent)
 {
 	EE_ASSERT(root != NULL, "Trying to print NULL type info root");
 
 	if (root->type == TYPE_FLAT)
 	{
-		EE_PRINT("TYPE: %s", _s_type_name_table[root->as_flat]);
+		for (size_t i = 0; i < indent; ++i)
+		{
+			EE_PRINT("  ");
+		}
+
+		for (size_t i = 0; i < root->as_flat->scratch.len; ++i)
+		{
+			EE_PRINT("%c", root->as_flat->scratch.buffer[i]);
+		}
+		EE_PRINTLN("");
 	}
 	else if (root->type == TYPE_TUPLE)
 	{
-		EE_PRINT("(");
+		for (size_t i = 0; i < indent; ++i)
+		{
+			EE_PRINT("  ");
+		}
+		EE_PRINTLN("TYPE_TUPLE: ");
 
 		Ast_Type_Info** members = (Ast_Type_Info**)root->as_tuple.buffer;
 
 		for (size_t i = 0; i < ee_array_len(&root->as_tuple); ++i)
 		{
-			ee_pars_debug_print_type_info(members[i]);
-			
-			if (i != ee_array_len(&root->as_tuple) - 1)
-				EE_PRINT(", ");
+			ee_pars_debug_print_type_info(members[i], indent + 1);
 		}
-
-		EE_PRINT(")");
 	}
 	else if (root->type == TYPE_PTR)
 	{
-		EE_PRINT("&");
-		ee_pars_debug_print_type_info(root->as_ptr_to);
+		for (size_t i = 0; i < indent; ++i)
+		{
+			EE_PRINT("  ");
+		}
+
+		EE_PRINTLN("TYPE_PTR: ");
+		ee_pars_debug_print_type_info(root->as_ptr_to, indent);
 	}
 }
 
@@ -297,18 +291,16 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 
 		if (expr->as_lit.token->type == TOKEN_LIT_INT)
 		{
-			EE_PRINT("LITERAL: %llu | ", expr->as_lit.token->as_u64);
-			ee_pars_debug_print_type_info(&expr->as_lit.type_info);
+			EE_PRINTLN("LITERAL: %llu", expr->as_lit.token->as_u64);
 		}
 		else if (expr->as_lit.token->type == TOKEN_LIT_FLOAT)
 		{
-			EE_PRINT("LITERAL: %f | ", expr->as_lit.token->as_f64);
-			ee_pars_debug_print_type_info(&expr->as_lit.type_info);
+			EE_PRINTLN("LITERAL: %f", expr->as_lit.token->as_f64);
 		}
 		else
 			EE_ASSERT(0, "Unsupported literal type for debug print (%d)", expr->as_lit.token->type);
 
-		EE_PRINTLN();
+		EE_PRINTLN("");
 	} break;
 	case EXPR_IDENT:
 	{
@@ -322,9 +314,8 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 		{
 			EE_PRINT("%c", expr->as_ident.token->scratch.buffer[i]);
 		}
-		EE_PRINT(" | TYPE: NONE");
 
-		EE_PRINTLN();
+		EE_PRINTLN("");
 	} break;
 	case EXPR_BINOP:
 	{
@@ -365,9 +356,9 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 		EE_PRINTLN("FUNC_EXPR: ");
 
 		ee_pars_debug_print_expr(expr->as_func_call.func, indent + 1);
-		EE_PRINTLN();
+		EE_PRINTLN("");
 
-		Ast_Node** args = (Ast_Node**)expr->as_func_call.args.buffer;
+		Ast_Expr** args = (Ast_Expr**)expr->as_func_call.args.buffer;
 		
 		for (size_t i = 0; i < indent + 1; ++i)
 		{
@@ -376,7 +367,7 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 		EE_PRINTLN("FUNC_ARGS: ");
 		for (size_t i = 0; i < ee_array_len(&expr->as_func_call.args); ++i)
 		{
-			ee_pars_debug_print_expr(args[i], indent + 1);
+			ee_pars_debug_print_expr(args[i], indent + 2);
 		}
 	} break;
 	case EXPR_ACCESS:
@@ -394,8 +385,6 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 		}
 		EE_PRINTLN("ACCESS_EXPR: ");
 		ee_pars_debug_print_expr(expr->as_access.entity, indent + 1);
-
-		EE_PRINTLN();
 
 		for (size_t i = 0; i < indent + 1; ++i)
 		{
@@ -424,15 +413,13 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 
 		ee_pars_debug_print_expr(expr->as_index.entity, indent + 1);
 
-		EE_PRINTLN("");
-
 		for (size_t i = 0; i < indent + 1; ++i)
 		{
 			EE_PRINT("  ");
 		}
 
 		EE_PRINTLN("INDEX_ARG: ");
-		ee_pars_debug_print_expr(expr->as_index.index, indent + 1);
+		ee_pars_debug_print_expr(expr->as_index.index, indent + 2);
 	} break;
 	default:
 	{

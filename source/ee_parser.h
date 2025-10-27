@@ -113,7 +113,7 @@ typedef struct Ast_Type_Info
 
 	union
 	{
-		Ast_Data_Type as_flat;
+		const Token* as_flat;
 		Array as_tuple;
 		struct Ast_Type_Info* as_ptr_to;
 	};
@@ -122,13 +122,11 @@ typedef struct Ast_Type_Info
 // TODO(eesuck): remove type info from var and just store it globaly
 typedef struct Ast_Lit_Expr
 {
-	Ast_Type_Info type_info;
 	const Token* token;
 } Ast_Lit_Expr;
 
 typedef struct Ast_Ident_Expr
 {
-	Ast_Type_Info type_info;
 	const Token* token;
 } Ast_Ident_Expr;
 
@@ -328,9 +326,8 @@ Ast_Expr* ee_pars_postfix(Parser* pars, Ast_Expr* atom);
 Ast_Expr* ee_pars_expr_1(Parser* pars, Ast_Expr* lhs, Ast_Precedence min_prec);
 Ast_Expr* ee_pars_expr(Parser* pars);
 
-void ee_pars_debug_print_type_info(Ast_Type_Info* root);
+void ee_pars_debug_print_type_info(Ast_Type_Info* root, size_t indent);
 void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent);
-i32 ee_pars_get_op_precedence(Ast_Binop_Type op);
 
 Parser ee_pars_new(const Array* tokens, Allocator* allocator);
 void ee_pars_run(Parser* pars);

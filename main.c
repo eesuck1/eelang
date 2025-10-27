@@ -6,7 +6,7 @@
 
 int main()
 {
-	const char* file_path = "C:/Users/volod/Documents/git/eelang/assets/eelang_test_types.eel";
+	const char* file_path = "assets/eelang_test_expr.eel";
 
 	Lexer lex = ee_lex_new_file(file_path, NULL);
 
@@ -14,12 +14,12 @@ int main()
 
 	Parser pars = ee_pars_new(&lex.tokens, &lex.allocator);
 	
-	Ast_Type_Info* t = ee_pars_type_info(&pars);
+	//Ast_Type_Info* t = ee_pars_type_info(&pars);
 
-	ee_pars_debug_print_type_info(t);
-	//Ast_Expr* res_0 = ee_pars_expr(&pars);
-	//
-	//ee_pars_debug_print_expr(res_0, 0);
+	//ee_pars_debug_print_type_info(t, 0);
+	Ast_Expr* res_0 = ee_pars_expr(&pars);
+	
+	ee_pars_debug_print_expr(res_0, 0);
 
 	return 0;
 }
