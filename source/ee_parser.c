@@ -373,6 +373,19 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 
 		stmt->as_for.body = ee_pars_stmt(pars);
 	} break;
+	case TOKEN_WHILE:
+	{
+		ee_pars_advance(pars, 1);
+
+		EE_ASSERT(!ee_pars_check(pars, '{'), "Invalid 'while' statement, condition missed");
+
+		stmt->type = STMT_WHILE;
+		stmt->as_while.cond = ee_pars_expr(pars);
+
+		ee_pars_match_or_panic(pars, '{', "Invalid 'if' statement, block body must be opened with '{'");
+		stmt->as_while.body = ee_pars_stmt(pars);
+		ee_pars_match_or_panic(pars, '}', "Invalid 'if' statement, block body must be closed with '}'");
+	} break;
 	default:
 	{
 		stmt->type = STMT_EXPR;
@@ -735,6 +748,29 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 		}
 		EE_PRINTLN("BODY:");
 		ee_pars_debug_print_stmt(stmt->as_for.body, indent + 1);
+	} break;
+	case STMT_WHILE:
+	{
+		for (size_t i = 0; i < indent; ++i)
+		{
+			EE_PRINT("  ");
+		}
+
+		EE_PRINTLN("WHILE:");
+
+		for (size_t i = 0; i < indent + 1; ++i)
+		{
+			EE_PRINT("  ");
+		}
+		EE_PRINTLN("CONDITION: ");
+		ee_pars_debug_print_expr(stmt->as_while.cond, indent + 1);
+
+		for (size_t i = 0; i < indent + 1; ++i)
+		{
+			EE_PRINT("  ");
+		}
+		EE_PRINTLN("BODY: ");
+		ee_pars_debug_print_stmt(stmt->as_while.body, indent + 2);
 	} break;
 	default:
 	{

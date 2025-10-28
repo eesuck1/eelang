@@ -127,6 +127,12 @@ typedef struct Ast_Expr Ast_Expr;
 typedef struct Ast_Stmt Ast_Stmt;
 typedef struct Ast_Node Ast_Node;
 
+typedef struct Ast_Func_Type_Info
+{
+	struct Ast_Type_Info* params;
+	struct Ast_Type_Info* ret;
+} Ast_Func_Type_Info;
+
 typedef struct Ast_Type_Info
 {
 	Ast_Type_Expr_Type type;
@@ -136,6 +142,7 @@ typedef struct Ast_Type_Info
 		const Token* as_flat;
 		Array as_tuple;
 		struct Ast_Type_Info* as_ptr_to;
+		Ast_Func_Type_Info as_func;
 	};
 } Ast_Type_Info;
 
@@ -233,6 +240,18 @@ typedef struct Ast_For_Stmt
 	Ast_Block_Stmt* body;
 } Ast_For_Stmt;
 
+typedef struct Ast_While_Stmt
+{
+	Ast_Expr* cond;
+	Ast_Block_Stmt* body;
+} Ast_While_Stmt;
+
+typedef struct Ast_Func_Decl_Stmt
+{
+	Array params;
+
+} Ast_Func_Decl_Stmt;
+
 typedef struct Ast_Stmt
 {
 	Ast_Stmt_Type type;
@@ -245,6 +264,7 @@ typedef struct Ast_Stmt
 		Ast_Expr_Stmt as_expr;
 		Ast_If_Stmt as_if;
 		Ast_For_Stmt as_for;
+		Ast_While_Stmt as_while;
 	};
 } Ast_Stmt;
 
