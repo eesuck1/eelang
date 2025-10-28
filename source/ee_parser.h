@@ -414,6 +414,9 @@ EE_INLINE i32 ee_pars_check(Parser* pars, Token_Type pattern)
 
 Ast_Type_Info* ee_pars_type_info(Parser* pars);
 
+Ast_Expr* ee_alloc_expr(Parser* pars, Ast_Expr_Type type);
+Ast_Stmt* ee_alloc_stmt(Parser* pars, Ast_Stmt_Type type);
+
 Ast_Expr* ee_pars_atom(Parser* pars);
 Ast_Expr* ee_pars_postfix(Parser* pars, Ast_Expr* atom);
 Ast_Expr* ee_pars_expr_1(Parser* pars, Ast_Expr* lhs, Ast_Precedence min_prec);

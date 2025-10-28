@@ -1,0 +1,1 @@
+let test_var: (Test_Type_0, Test_Type_1) = { 1, 2 };

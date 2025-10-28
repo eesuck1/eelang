@@ -112,6 +112,26 @@ Ast_Type_Info* ee_pars_type_info(Parser* pars)
 	return type_info;
 }
 
+Ast_Expr* ee_alloc_expr(Parser* pars, Ast_Expr_Type type)
+{
+	Ast_Expr* out = pars->allocator.alloc_fn(&pars->allocator, sizeof(*out));
+	EE_ASSERT(out != NULL, "Unable to allocate memory");
+
+	out->type = type;
+
+	return out;
+}
+
+Ast_Stmt* ee_alloc_stmt(Parser* pars, Ast_Stmt_Type type)
+{
+	Ast_Stmt* stmt = pars->allocator.alloc_fn(&pars->allocator, sizeof(*stmt));
+	EE_ASSERT(stmt != NULL, "Unable to allocate memory");
+
+	stmt->type = type;
+
+	return stmt;
+}
+
 Ast_Expr* ee_pars_atom(Parser* pars)
 {
 	Ast_Expr* atom = NULL;
@@ -120,18 +140,12 @@ Ast_Expr* ee_pars_atom(Parser* pars)
 
 	if (ee_token_is_lit(token))
 	{
-		atom = pars->allocator.alloc_fn(&pars->allocator, sizeof(*atom));
-		EE_ASSERT(atom != NULL, "Unable to allocate memory");
-
-		atom->type = EXPR_LIT;
+		atom = ee_alloc_expr(pars, EXPR_LIT);
 		atom->as_lit.token = token;
 	}
 	else if (token->type == TOKEN_IDENTIFIER)
 	{
-		atom = pars->allocator.alloc_fn(&pars->allocator, sizeof(*atom));
-		EE_ASSERT(atom != NULL, "Unable to allocate memory");
-
-		atom->type = EXPR_IDENT;
+		atom = ee_alloc_expr(pars, EXPR_IDENT);
 		atom->as_ident.token = token;
 	}
 	else if (token->type == '(')
@@ -141,10 +155,7 @@ Ast_Expr* ee_pars_atom(Parser* pars)
 	}
 	else if (ee_token_match_unop(token) != UNOP_COUNT)
 	{
-		atom = pars->allocator.alloc_fn(&pars->allocator, sizeof(*atom));
-		EE_ASSERT(atom != NULL, "Unable to allocate memory");
-
-		atom->type = EXPR_UNOP;
+		atom = ee_alloc_expr(pars, EXPR_UNOP);
 		atom->as_unop.type = ee_token_match_unop(token);
 		atom->as_unop.expr = ee_pars_atom(pars);
 	}
@@ -160,10 +171,8 @@ Ast_Expr* ee_pars_postfix(Parser* pars, Ast_Expr* atom)
 	{
 		if (ee_pars_match(pars, '('))
 		{
-			Ast_Expr* func_call = pars->allocator.alloc_fn(&pars->allocator, sizeof(*func_call));
-			EE_ASSERT(func_call != NULL, "Unable to allocate memory");
+			Ast_Expr* func_call = ee_alloc_expr(pars, EXPR_FUNC_CALL);
 
-			func_call->type = EXPR_FUNC_CALL;
 			func_call->as_func_call.args = ee_array_new(8, sizeof(Ast_Expr*), &pars->allocator);
 			func_call->as_func_call.func = atom;
 
@@ -185,12 +194,10 @@ Ast_Expr* ee_pars_postfix(Parser* pars, Ast_Expr* atom)
 		}
 		else if (ee_pars_match(pars, '.'))
 		{
-			Ast_Expr* access_expr = pars->allocator.alloc_fn(&pars->allocator, sizeof(*access_expr));
-			EE_ASSERT(access_expr != NULL, "Unable to allocate memory");
+			Ast_Expr* access_expr = ee_alloc_expr(pars, EXPR_ACCESS);
 
 			ee_pars_check_or_panic(pars, TOKEN_IDENTIFIER, "Invalid access expression, expected identifier");
 
-			access_expr->type = EXPR_ACCESS;
 			access_expr->as_access.entity = atom;
 			access_expr->as_access.member = ee_pars_eat(pars);
 
@@ -198,10 +205,8 @@ Ast_Expr* ee_pars_postfix(Parser* pars, Ast_Expr* atom)
 		}
 		else if (ee_pars_match(pars, '['))
 		{
-			Ast_Expr* index_expr = pars->allocator.alloc_fn(&pars->allocator, sizeof(*index_expr));
-			EE_ASSERT(index_expr != NULL, "Unable to allocate memory");
+			Ast_Expr* index_expr = ee_alloc_expr(pars, EXPR_INDEX);
 
-			index_expr->type = EXPR_INDEX;
 			index_expr->as_index.entity = atom;
 			index_expr->as_index.index = ee_pars_expr(pars);
 
@@ -242,10 +247,8 @@ Ast_Expr* ee_pars_expr_1(Parser* pars, Ast_Expr* lhs, Ast_Precedence min_prec)
 			rhs = ee_pars_expr_1(pars, rhs, prec + 1);
 		}
 
-		Ast_Expr* expr = pars->allocator.alloc_fn(&pars->allocator, sizeof(*expr));
-		EE_ASSERT(expr != NULL, "Unable to allocate memory");
+		Ast_Expr* expr = ee_alloc_expr(pars, EXPR_BINOP);
 
-		expr->type = EXPR_BINOP;
 		expr->as_binop.type = binop;
 		expr->as_binop.left = lhs;
 		expr->as_binop.right = rhs;
@@ -265,9 +268,7 @@ Ast_Expr* ee_pars_expr(Parser* pars)
 
 Ast_Stmt* ee_pars_stmt(Parser* pars)
 {
-	Ast_Stmt* stmt = pars->allocator.alloc_fn(&pars->allocator, sizeof(*stmt));
-	EE_ASSERT(stmt != NULL, "Unable to allocate memory");
-
+	Ast_Stmt* stmt = NULL;
 	const Token* token = ee_pars_peek(pars);
 
 	switch (token->type)
@@ -279,7 +280,7 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 
 		const Token* ident = ee_pars_eat(pars);
 
-		stmt->type = STMT_LET;
+		stmt = ee_alloc_stmt(pars, STMT_LET);
 		stmt->as_let.ident = ident;
 
 		if (ee_pars_match(pars, ':'))
@@ -312,7 +313,7 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 	{
 		ee_pars_advance(pars, 1);
 		
-		stmt->type = STMT_BLOCK;
+		stmt = ee_alloc_stmt(pars, STMT_BLOCK);
 		stmt->as_block.stmts = ee_array_new(32, sizeof(Ast_Stmt*), &pars->allocator);
 
 		while (!ee_pars_match(pars, '}'))
@@ -326,8 +327,8 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 		ee_pars_advance(pars, 1);
 
 		EE_ASSERT(!ee_pars_check(pars, '{'), "Invalid 'if' statement, condition missed");
-
-		stmt->type = STMT_IF;
+		
+		stmt = ee_alloc_stmt(pars, STMT_IF);
 		stmt->as_if.cond = ee_pars_expr(pars);
 
 		ee_pars_check_or_panic(pars, '{', "Invalid 'if' statement, block body must be opened with '{'");
@@ -352,7 +353,7 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 
 		ee_pars_match_or_panic(pars, TOKEN_IN, "Invalid 'for' statement, expected 'in' keyword after iteration identifier");
 
-		stmt->type = STMT_FOR;
+		stmt = ee_alloc_stmt(pars, STMT_FOR);
 		stmt->as_for.it = it;
 		stmt->as_for.range = ee_pars_expr(pars);
 
@@ -367,7 +368,7 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 
 		EE_ASSERT(!ee_pars_check(pars, '{'), "Invalid 'while' statement, condition missed");
 
-		stmt->type = STMT_WHILE;
+		stmt = ee_alloc_stmt(pars, STMT_WHILE);
 		stmt->as_while.cond = ee_pars_expr(pars);
 
 		ee_pars_check_or_panic(pars, '{', "Invalid 'if' statement, block body must be opened with '{'");
@@ -379,13 +380,13 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 
 		if (ee_pars_match(pars, '='))
 		{
-			stmt->type = STMT_ASSIGN;
+			stmt = ee_alloc_stmt(pars, STMT_ASSIGN);
 			stmt->as_assign.ident = expr;
 			stmt->as_assign.val = ee_pars_expr(pars);
 		}
 		else
 		{
-			stmt->type = STMT_EXPR;
+			stmt = ee_alloc_stmt(pars, STMT_EXPR);
 			stmt->as_expr.expr = expr;
 		}
 

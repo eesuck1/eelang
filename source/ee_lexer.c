@@ -167,25 +167,38 @@ i32 ee_lex_skip_whitespace(Lexer* lex)
 
 	while (!ee_lex_end(lex))
 	{
-		if (isspace(ee_lex_peek(lex)))
+		char c = ee_lex_peek(lex);
+
+		if (c == '\n')
+		{
+			lex->chr = 0;
+			lex->line += 1;
+
+			ee_lex_advance(lex, 1);
+			skipped = EE_TRUE;
+		}
+		else if (isspace(c))
 		{
 			ee_lex_advance(lex, 1);
 			skipped = EE_TRUE;
-
-			continue;
 		}
 		else if (ee_lex_peek(lex) == '/' && ee_lex_peek_next(lex, 1) == '/')
 		{
 			ee_lex_advance(lex, 2);
 			skipped = EE_TRUE;
 
-			while (!ee_lex_match(lex, '\n'))
+			while (!ee_lex_check(lex, '\n'))
 				ee_lex_advance(lex, 1);
 
-			continue;
-		}
+			lex->chr = 0;
+			lex->line += 1;
 
-		break;
+			ee_lex_advance(lex, 1);
+		}
+		else
+		{
+			break;
+		}
 	}
 
 	return skipped;
@@ -377,6 +390,10 @@ void ee_lex_emit_token(Lexer* lex, Token_Type token_type, Str_View scratch)
 	token.type = token_type;
 	token.scratch = scratch;
 
+	token.pos = lex->pos;
+	token.chr = lex->chr - scratch.len;
+	token.line = lex->line;
+
 	ee_array_push(&lex->tokens, EE_RECAST_U8(token));
 }
 
@@ -387,6 +404,10 @@ void ee_lex_emit_token_u64(Lexer* lex, Str_View scratch, u64 val)
 	token.type = TOKEN_LIT_INT;
 	token.scratch = scratch;
 	token.as_u64 = val;
+
+	token.pos = lex->pos;
+	token.chr = lex->chr - scratch.len;
+	token.line = lex->line;
 
 	ee_array_push(&lex->tokens, EE_RECAST_U8(token));
 }
@@ -399,6 +420,10 @@ void ee_lex_emit_token_f64(Lexer* lex, Str_View scratch, f64 val)
 	token.scratch = scratch;
 	token.as_f64 = val;
 
+	token.pos = lex->pos;
+	token.chr = lex->chr - scratch.len;
+	token.line = lex->line;
+
 	ee_array_push(&lex->tokens, EE_RECAST_U8(token));
 }
 
@@ -409,6 +434,10 @@ void ee_lex_emit_token_str_view(Lexer* lex, Token_Type token_type, Str_View scra
 	token.type = token_type;
 	token.scratch = scratch;
 	token.as_str_view = val;
+
+	token.pos = lex->pos;
+	token.chr = lex->chr - scratch.len;
+	token.line = lex->line;
 
 	ee_array_push(&lex->tokens, EE_RECAST_U8(token));
 }

@@ -95,6 +95,10 @@ typedef struct Token
 {
     Token_Type type;
 
+    size_t pos;
+    size_t chr;
+    size_t line;
+
     union
     {
         f64 as_f64;
@@ -111,6 +115,8 @@ typedef struct Lexer
 
     Str stream;
     size_t pos;
+    size_t chr;
+    size_t line;
     const char* file_path;
     
     Allocator allocator;
@@ -168,6 +174,7 @@ EE_INLINE void ee_lex_advance(Lexer* lex, size_t count)
     EE_ASSERT(lex->pos + count <= lex->stream.top, "Trying to advance beyond stream buffer (%zu + %zu >= %zu)", lex->pos, count, lex->stream.top);
     
     lex->pos += count;
+    lex->chr += count;
 }
 
 EE_INLINE i32 ee_lex_check(const Lexer* lex, char pattern)
