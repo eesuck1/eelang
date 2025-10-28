@@ -114,18 +114,23 @@ Ast_Type_Info* ee_pars_type_info(Parser* pars)
 
 Ast_Expr* ee_pars_atom(Parser* pars)
 {
-	Ast_Expr* atom = pars->allocator.alloc_fn(&pars->allocator, sizeof(*atom));
-	EE_ASSERT(atom != NULL, "Unable to allocate memory");
+	Ast_Expr* atom = NULL;
 
 	const Token* token = ee_pars_eat(pars);
 
 	if (ee_token_is_lit(token))
 	{
+		atom = pars->allocator.alloc_fn(&pars->allocator, sizeof(*atom));
+		EE_ASSERT(atom != NULL, "Unable to allocate memory");
+
 		atom->type = EXPR_LIT;
 		atom->as_lit.token = token;
 	}
 	else if (token->type == TOKEN_IDENTIFIER)
 	{
+		atom = pars->allocator.alloc_fn(&pars->allocator, sizeof(*atom));
+		EE_ASSERT(atom != NULL, "Unable to allocate memory");
+
 		atom->type = EXPR_IDENT;
 		atom->as_ident.token = token;
 	}
@@ -136,6 +141,9 @@ Ast_Expr* ee_pars_atom(Parser* pars)
 	}
 	else if (ee_token_match_unop(token) != UNOP_COUNT)
 	{
+		atom = pars->allocator.alloc_fn(&pars->allocator, sizeof(*atom));
+		EE_ASSERT(atom != NULL, "Unable to allocate memory");
+
 		atom->type = EXPR_UNOP;
 		atom->as_unop.type = ee_token_match_unop(token);
 		atom->as_unop.expr = ee_pars_atom(pars);
@@ -340,15 +348,13 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 		stmt->type = STMT_IF;
 		stmt->as_if.cond = ee_pars_expr(pars);
 
-		ee_pars_match_or_panic(pars, '{', "Invalid 'if' statement, block body must be opened with '{'");
+		ee_pars_check_or_panic(pars, '{', "Invalid 'if' statement, block body must be opened with '{'");
 		stmt->as_if.if_block = ee_pars_stmt(pars);
-		ee_pars_match_or_panic(pars, '}', "Invalid 'if' statement, block body must be closed with '}'");
 
 		if (ee_pars_match(pars, TOKEN_ELSE))
 		{
-			ee_pars_match_or_panic(pars, '{', "Invalid 'if' statement, 'else' block body must be opened with '{'");
+			ee_pars_check_or_panic(pars, '{', "Invalid 'if' statement, 'else' block body must be opened with '{'");
 			stmt->as_if.else_block = ee_pars_stmt(pars);
-			ee_pars_match_or_panic(pars, '}', "Invalid 'if' statement, 'else' block body must be closed with '}'");
 		}
 		else
 		{
@@ -382,9 +388,8 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 		stmt->type = STMT_WHILE;
 		stmt->as_while.cond = ee_pars_expr(pars);
 
-		ee_pars_match_or_panic(pars, '{', "Invalid 'if' statement, block body must be opened with '{'");
+		ee_pars_check_or_panic(pars, '{', "Invalid 'if' statement, block body must be opened with '{'");
 		stmt->as_while.body = ee_pars_stmt(pars);
-		ee_pars_match_or_panic(pars, '}', "Invalid 'if' statement, block body must be closed with '}'");
 	} break;
 	default:
 	{

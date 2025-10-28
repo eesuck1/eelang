@@ -3,6 +3,8 @@
 	let b = 10;
 	let c: i32;
 
+	a.b.c.d.e.f[a.b.c.d.r.f(f(f(f(),f(),f())))];
+
 	d = 123;
 
 	{
