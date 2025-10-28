@@ -321,24 +321,6 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 			ee_array_push(&stmt->as_block.stmts, EE_RECAST_U8(block_stmt));
 		}
 	} break;
-	case TOKEN_IDENTIFIER:
-	{
-		if (ee_pars_peek_next(pars, 1)->type == '=')
-		{
-			ee_pars_advance(pars, 2);
-
-			stmt->type = STMT_ASSIGN;
-			stmt->as_assign.ident = token;
-			stmt->as_assign.val = ee_pars_expr(pars);
-		}
-		else
-		{
-			stmt->type = STMT_EXPR;
-			stmt->as_expr.expr = ee_pars_expr(pars);
-		}
-
-		ee_pars_match_or_panic(pars, ';', "Expected ';' after value expression");
-	} break;
 	case TOKEN_IF:
 	{
 		ee_pars_advance(pars, 1);
@@ -393,8 +375,19 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 	} break;
 	default:
 	{
-		stmt->type = STMT_EXPR;
-		stmt->as_expr.expr = ee_pars_expr(pars);
+		Ast_Expr* expr = ee_pars_expr(pars);
+
+		if (ee_pars_match(pars, '='))
+		{
+			stmt->type = STMT_ASSIGN;
+			stmt->as_assign.ident = expr;
+			stmt->as_assign.val = ee_pars_expr(pars);
+		}
+		else
+		{
+			stmt->type = STMT_EXPR;
+			stmt->as_expr.expr = expr;
+		}
 
 		ee_pars_match_or_panic(pars, ';', "Expected ';' after value expression");
 	} break;
@@ -653,19 +646,26 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 			EE_PRINT("  ");
 		}
 
-		EE_PRINT("ASSIGN: ");
-		ee_str_view_print(stmt->as_let.ident->scratch);
-		EE_PRINTLN("");
+		EE_PRINTLN("ASSIGN: ");
 
 		for (size_t i = 0; i < indent + 1; ++i)
 		{
 			EE_PRINT("  ");
 		}
 
-		EE_PRINTLN("ASSIGN_VAL: ");
-		if (stmt->as_let.val != NULL)
+		EE_PRINTLN("ASSIGN_LVAL:");
+
+		ee_pars_debug_print_expr(stmt->as_assign.ident, indent + 1);
+
+		for (size_t i = 0; i < indent + 1; ++i)
 		{
-			ee_pars_debug_print_expr(stmt->as_let.val, indent + 1);
+			EE_PRINT("  ");
+		}
+
+		EE_PRINTLN("ASSIGN_RVAL: ");
+		if (stmt->as_assign.val != NULL)
+		{
+			ee_pars_debug_print_expr(stmt->as_assign.val, indent + 1);
 		}
 		else
 		{

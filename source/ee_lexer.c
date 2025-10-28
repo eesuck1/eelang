@@ -179,6 +179,9 @@ i32 ee_lex_skip_whitespace(Lexer* lex)
 			ee_lex_advance(lex, 2);
 			skipped = EE_TRUE;
 
+			while (!ee_lex_match(lex, '\n'))
+				ee_lex_advance(lex, 1);
+
 			continue;
 		}
 

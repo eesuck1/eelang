@@ -1,32 +1,5 @@
 {
-	let a: i32 = a + b - ~c;
-	let b = 10;
-	let c: i32;
-
-	a.b.c.d.e.f[a.b.c.d.r.f(f(f(f(),f(),f())))];
-
-	d = 123;
-
-	{
-		a + b + c - ~d..100 as u32;
-	}
-
-	if a + b == c
-	{
-		f = 1;
-	}
-	else
-	{
-		f = 2;
-	}
-
-	for i in 0..10
-	{
-		a + b;
-	}
-
-	while i < 10
-	{
-		i = i + 1;
-	}
+	// test comment
+	//
+	a + b = b;
 }

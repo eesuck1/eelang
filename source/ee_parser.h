@@ -212,7 +212,7 @@ typedef struct Ast_Let_Stmt
 
 typedef struct Ast_Assign_Stmt
 {
-	const Token* ident;
+	Ast_Expr* ident;
 	Ast_Expr* val;
 } Ast_Assign_Stmt;
 
