@@ -45,6 +45,9 @@ void ee_log_error_token_va(Logger* log, const Token* token, const char* fmt, va_
 	i64 line_start_p = line_start;
 	i64 line_end_p   = line_end;
 
+	i64 f_count = 0;
+	i64 b_count = 0;
+
 	while (line_start > 0 && buf[line_start] != '\n')
 	{
 		line_start--;
@@ -67,7 +70,7 @@ void ee_log_error_token_va(Logger* log, const Token* token, const char* fmt, va_
 
 	EE_ASSERT(line_end_p >= line_start_p, "Invalid bounbs for line (%lld, %lld)", line_start_p, line_end_p);
 
-	size_t line_len = (size_t)(line_end_p - line_start_p);
+	size_t line_len = (size_t)(line_end_p - line_start_p) + 1;
 
 	fprintf(stderr, "\033[96m");
 
@@ -83,7 +86,7 @@ void ee_log_error_token_va(Logger* log, const Token* token, const char* fmt, va_
 	fprintf(stderr, "      | ");
 	for (size_t i = 0; i < line_len; ++i)
 	{
-		if (i >= token->chr - line_start_p && i < token->chr - line_start_p + token->scratch.len)
+		if (i >= token->chr - line_start_p + token->pos && i < token->chr - line_start_p + token->scratch.len + token->pos)
 		{
 			fputc('~', stderr);
 		}

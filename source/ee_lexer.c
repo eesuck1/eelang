@@ -483,7 +483,17 @@ void ee_lex_tokenize(Lexer* lex)
 		} break;
 		case '-':
 		{
-			ee_lex_emit_after_equal(lex, current, TOKEN_MINUS_EQUAL);
+			if (ee_lex_peek_next(lex, 1) == '>')
+			{
+				Str_View scratch = ee_str_view_from_str(&lex->stream, lex->pos, 2);
+
+				ee_lex_emit_token(lex, TOKEN_ARROW, scratch);
+				ee_lex_advance(lex, 2);
+			}
+			else
+			{
+				ee_lex_emit_after_equal(lex, current, TOKEN_MINUS_EQUAL);
+			}
 		} break;
 		case '*':
 		{

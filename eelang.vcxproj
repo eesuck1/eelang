@@ -133,6 +133,7 @@
     <ClCompile Include="source\ee_lexer.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="source\ee_checker.h" />
     <ClInclude Include="source\ee_lexer.h" />
     <ClInclude Include="source\ee_log.h" />
     <ClInclude Include="source\ee_parser.h" />

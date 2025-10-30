@@ -26,7 +26,23 @@ static i32 ee_token_ptr_eq(const u8* a, const u8* b, size_t len)
 	return memcmp(a_token->scratch.buffer, b_token->scratch.buffer, a_token->scratch.len) == 0;
 }
 
-Parser ee_pars_new(const Array* tokens, const Allocator* allocator)
+void ee_pars_init_types(Parser* pars)
+{
+	Token* u8_type = pars->allocator.alloc_fn(&pars->allocator, sizeof(Token*));
+	Token* u16_type = pars->allocator.alloc_fn(&pars->allocator, sizeof(Token*));
+	Token* u32_type = pars->allocator.alloc_fn(&pars->allocator, sizeof(Token*));
+	Token* u64_type = pars->allocator.alloc_fn(&pars->allocator, sizeof(Token*));
+
+	Token* i8_type = pars->allocator.alloc_fn(&pars->allocator, sizeof(Token*));
+	Token* i16_type = pars->allocator.alloc_fn(&pars->allocator, sizeof(Token*));
+	Token* i32_type = pars->allocator.alloc_fn(&pars->allocator, sizeof(Token*));
+	Token* i64_type = pars->allocator.alloc_fn(&pars->allocator, sizeof(Token*));
+
+	Token* f32_type = pars->allocator.alloc_fn(&pars->allocator, sizeof(Token*));
+	Token* f64_type = pars->allocator.alloc_fn(&pars->allocator, sizeof(Token*));
+}
+
+Parser ee_pars_new(const Lexer* lex, const Allocator* allocator)
 {
 	Parser out = { 0 };
 
@@ -48,59 +64,102 @@ Parser ee_pars_new(const Array* tokens, const Allocator* allocator)
 
 	DictConfig config = ee_dict_config_new(&out.allocator, ee_token_ptr_hash, ee_token_ptr_eq, NULL, NULL);
 
-	out.tokens = tokens;
-	out.nodes = ee_array_new(ee_array_len(tokens) / 3, sizeof(Ast_Node*), allocator);
-	out.var_types_table = ee_dict_new(ee_array_len(tokens) / 3, sizeof(const Token*), sizeof(Ast_Type_Info*), config);
-	out.types_table = ee_dict_new(256, sizeof(const Token*), sizeof(Ast_Type_Info*), config);
+	out.tokens = &lex->tokens;
+	out.symbols = ee_dict_new(256, sizeof(const Token*), sizeof(Ast_Type*), config);
+	out.types = ee_dict_new(256, sizeof(const Token*), sizeof(Ast_Type*), config);
 	out.pos = 0;
+	out.logger.lexer = lex;
 
 	return out;
 }
 
-Ast_Type_Info* ee_pars_type_info(Parser* pars)
+Ast_Type* ee_pars_type(Parser* pars)
 {
-	Ast_Type_Info* type_info = pars->allocator.alloc_fn(&pars->allocator, sizeof(*type_info));
-	EE_ASSERT(type_info != NULL, "Unable to allocate memory");
-
+	Ast_Type* type = NULL;
+	
 	if (ee_pars_check(pars, TOKEN_IDENTIFIER))
 	{
+		type = ee_alloc_type(pars, TYPE_PRIMITIVE);
 		const Token* token = ee_pars_eat(pars);
 
-		type_info->type = TYPE_FLAT;
-		type_info->as_flat = token;
+		type->as_primitive.dtype = ee_token_match_type(token);
+		type->name  = token->scratch;
+		type->size  = _s_type_size_table[type->as_primitive.dtype];
+		type->align = _s_type_align_table[type->as_primitive.dtype];
 	}
 	else if (ee_pars_match(pars, '('))
 	{
-		type_info->type = TYPE_TUPLE;
-		type_info->as_tuple = ee_array_new(8, sizeof(type_info), &pars->allocator);
+		type = ee_alloc_type(pars, TYPE_STRUCT);
+		type->as_struct.members = ee_array_new(8, sizeof(type), &pars->allocator);
 
-		while (!ee_pars_match(pars, ')'))
+		if (ee_pars_check(pars, ')'))
 		{
-			Ast_Type_Info* member = ee_pars_type_info(pars);
-
-			ee_array_push(&type_info->as_tuple, EE_RECAST_U8(member));
-
-			if (ee_pars_match(pars, ')'))
-				break;
-
-			ee_pars_match_or_panic(pars, ',', "Expected comma as separator between type expression members");
+			ee_log_error_token(&pars->logger, ee_pars_peek(pars), "The empty structure types are not allowed, expected the tuple of types, but given empty");
 		}
+
+		do
+		{
+			Ast_Type* member = ee_pars_type(pars);
+			ee_array_push(&type->as_struct.members, EE_RECAST_U8(member));
+		} while (ee_pars_match(pars, ','));
+
+		Usize max_align = 0;
+		Usize size = 0;
+		Ast_Type** members = (Ast_Type**)type->as_struct.members.buffer;
+
+		for (size_t i = 0; i < ee_array_len(&type->as_struct.members); ++i)
+		{
+			Ast_Type* member = members[i];
+
+			if (member->align > max_align)
+			{
+				max_align = member->align;
+			}
+		}
+
+		for (size_t i = 0; i < ee_array_len(&type->as_struct.members); ++i)
+		{
+			Ast_Type* member = members[i];
+			Usize align = member->align;
+
+			size = (size + align - 1) & ~(align - 1);
+			size += member->size;
+
+			if (align > max_align)
+			{
+				max_align = align;
+			}
+		}
+
+		size = (size + max_align - 1) & ~(max_align - 1);
+
+		type->name  = _s_anonim_type;
+		type->size  = size;
+		type->align = max_align;
 	}
 	else if (ee_pars_match(pars, '&'))
 	{
-		type_info->type = TYPE_PTR;
-		type_info->as_ptr_to = ee_pars_type_info(pars);
+		type = ee_alloc_type(pars, TYPE_PTR);
+		type->as_ptr.to = ee_pars_type(pars);
+		type->name = _s_anonim_type;
+		type->size = 8;
+		type->align = 8;
 	}
 	else if (ee_pars_match(pars, TOKEN_AND))
 	{
-		Ast_Type_Info* inner_ptr = pars->allocator.alloc_fn(&pars->allocator, sizeof(*inner_ptr));
-		EE_ASSERT(inner_ptr != NULL, "Unable to allocate memory");
+		type = ee_alloc_type(pars, TYPE_PTR);
+		Ast_Type* inner_ptr = ee_alloc_type(pars, TYPE_PTR);
 
-		inner_ptr->type = TYPE_PTR;
-		inner_ptr->as_ptr_to = ee_pars_type_info(pars);
+		inner_ptr->as_ptr.to = ee_pars_type(pars);
+		type->as_ptr.to = inner_ptr;
 
-		type_info->type = TYPE_PTR;
-		type_info->as_ptr_to = inner_ptr;
+		inner_ptr->name = _s_anonim_type;
+		inner_ptr->size = 8;
+		inner_ptr->align = 8;
+
+		type->name = _s_anonim_type;
+		type->size = 8;
+		type->align = 8;
 	}
 	else
 	{
@@ -108,6 +167,18 @@ Ast_Type_Info* ee_pars_type_info(Parser* pars)
 
 		return NULL;
 	}
+
+	EE_ASSERT(type != NULL, "Invalid type information");
+
+	return type;
+}
+
+Ast_Type* ee_alloc_type(Parser* pars, Ast_Type_Expr_Type type)
+{
+	Ast_Type* type_info = pars->allocator.alloc_fn(&pars->allocator, sizeof(*type_info));
+	EE_ASSERT(type_info != NULL, "Unable to allocate memory");
+
+	type_info->type = type;
 
 	return type_info;
 }
@@ -176,18 +247,19 @@ Ast_Expr* ee_pars_postfix(Parser* pars, Ast_Expr* atom)
 			func_call->as_func_call.args = ee_array_new(8, sizeof(Ast_Expr*), &pars->allocator);
 			func_call->as_func_call.func = atom;
 
-			while (!ee_pars_match(pars, ')'))
+			if (ee_pars_check(pars, ')'))
 			{
-				Ast_Expr* member = ee_pars_expr(pars);
+				ee_pars_advance(pars, 1);
+			}
+			else
+			{
+				do
+				{
+					Ast_Expr* member = ee_pars_expr(pars);
+					ee_array_push(&func_call->as_func_call.args, EE_RECAST_U8(member));
+				} while (ee_pars_match(pars, ','));
 
-				ee_array_push(&func_call->as_func_call.args, EE_RECAST_U8(member));
-
-				if (ee_pars_match(pars, ')'))
-					break;
-
-				ee_pars_match_or_panic(pars, ',', "Expected comma as separator between function call arguments");
-
-				EE_ASSERT(!ee_pars_match(pars, ')'), "Trailing comma in function call");
+				ee_pars_match_or_panic(pars, ')', "Expected closing ')' at the end of arguments list");
 			}
 
 			atom = func_call;
@@ -285,11 +357,9 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 
 		if (ee_pars_match(pars, ':'))
 		{
-			Ast_Type_Info* type_info = ee_pars_type_info(pars);
+			Ast_Type* type_info = ee_pars_type(pars);
 
-			EE_ASSERT(type_info != NULL, "Invalid type information in variable declaration");
-
-			ee_dict_set(&pars->var_types_table, EE_RECAST_U8(ident), EE_RECAST_U8(type_info));
+			ee_dict_set(&pars->symbols, EE_RECAST_U8(ident), EE_RECAST_U8(type_info));
 			
 			if (ee_pars_match(pars, '='))
 				stmt->as_let.val = ee_pars_expr(pars);
@@ -374,6 +444,67 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 		ee_pars_check_or_panic(pars, '{', "Invalid 'if' statement, block body must be opened with '{'");
 		stmt->as_while.body = ee_pars_stmt(pars);
 	} break;
+	case TOKEN_FUNCTION:
+	{
+		ee_pars_advance(pars, 1);
+		ee_pars_check_or_panic(pars, TOKEN_IDENTIFIER, "Expected function name identifier after 'fn' keyword");
+
+		const Token* ident = ee_pars_eat(pars);
+		
+		stmt = ee_alloc_stmt(pars, STMT_FN);
+		stmt->as_func_decl.ident = ident;
+		stmt->as_func_decl.params = ee_array_new(8, sizeof(const Token*), &pars->allocator);
+
+		ee_pars_match_or_panic(pars, '(', "Expected '(' after function name");
+
+		Ast_Type* type = ee_alloc_type(pars, TYPE_FUNC);
+		type->as_func.params = ee_array_new(8, sizeof(Ast_Type*), &pars->allocator);
+		
+		if (ee_pars_check(pars, ')'))
+		{
+			ee_pars_advance(pars, 1);
+			ee_dict_set(&pars->symbols, EE_RECAST_U8(ident), EE_RECAST_U8(type));
+		}
+		else
+		{
+			do
+			{
+				ee_pars_check_or_panic(pars, TOKEN_IDENTIFIER, "Expected function parameter name identifier in parameters list");
+				const Token* param = ee_pars_eat(pars);
+
+				ee_array_push(&stmt->as_func_decl.params, EE_RECAST_U8(param));
+				ee_pars_match_or_panic(pars, ':', "Expected ':' to separate parameter name and type expression");
+
+				Ast_Type* param_type = ee_pars_type(pars);
+				ee_array_push(&type->as_func.params, EE_RECAST_U8(param_type));
+			} while (ee_pars_match(pars, ','));
+		
+			ee_pars_match_or_panic(pars, ')', "Expected closed ')' after function parameters list");
+		}
+
+		if (ee_pars_match(pars, TOKEN_ARROW))
+		{
+			Ast_Type* ret_type = ee_pars_type(pars);
+			type->as_func.ret = ret_type;
+		}
+		
+		ee_dict_set(&pars->symbols, EE_RECAST_U8(ident), type);
+
+		stmt->as_func_decl.body = ee_pars_stmt(pars);
+	} break;
+	case TOKEN_RETURN:
+	{
+		ee_pars_advance(pars, 1);
+		
+		stmt = ee_alloc_stmt(pars, STMT_RETURN);
+		stmt->as_ret.val = NULL;
+		
+		if (!ee_pars_match(pars, ';'))
+		{
+			stmt->as_ret.val = ee_pars_expr(pars);
+			ee_pars_match_or_panic(pars, ';', "Expected ';' after return statement");
+		}
+	} break;
 	default:
 	{
 		Ast_Expr* expr = ee_pars_expr(pars);
@@ -397,21 +528,20 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 	return stmt;
 }
 
-void ee_pars_debug_print_type_info(Ast_Type_Info* root, size_t indent)
+void ee_pars_debug_print_type(Ast_Type* root, size_t indent)
 {
 	EE_ASSERT(root != NULL, "Trying to print NULL type info root");
 
-	if (root->type == TYPE_FLAT)
+	if (root->type == TYPE_PRIMITIVE)
 	{
 		for (size_t i = 0; i < indent; ++i)
 		{
 			EE_PRINT("  ");
 		}
 
-		ee_str_view_print(root->as_flat->scratch);
-		EE_PRINTLN("");
+		EE_PRINTLN("%s", _s_type_name_table[root->as_primitive.dtype]);
 	}
-	else if (root->type == TYPE_TUPLE)
+	else if (root->type == TYPE_STRUCT)
 	{
 		for (size_t i = 0; i < indent; ++i)
 		{
@@ -419,11 +549,11 @@ void ee_pars_debug_print_type_info(Ast_Type_Info* root, size_t indent)
 		}
 		EE_PRINTLN("TYPE_TUPLE: ");
 
-		Ast_Type_Info** members = (Ast_Type_Info**)root->as_tuple.buffer;
+		Ast_Type** members = (Ast_Type**)root->as_struct.members.buffer;
 
-		for (size_t i = 0; i < ee_array_len(&root->as_tuple); ++i)
+		for (size_t i = 0; i < ee_array_len(&root->as_struct.members); ++i)
 		{
-			ee_pars_debug_print_type_info(members[i], indent + 1);
+			ee_pars_debug_print_type(members[i], indent + 1);
 		}
 	}
 	else if (root->type == TYPE_PTR)
@@ -434,7 +564,7 @@ void ee_pars_debug_print_type_info(Ast_Type_Info* root, size_t indent)
 		}
 
 		EE_PRINTLN("TYPE_PTR: ");
-		ee_pars_debug_print_type_info(root->as_ptr_to, indent);
+		ee_pars_debug_print_type(root->as_ptr.to, indent);
 	}
 }
 
@@ -778,6 +908,56 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 		EE_PRINTLN("BODY: ");
 		ee_pars_debug_print_stmt(stmt->as_while.body, indent + 2);
 	} break;
+	case STMT_FN:
+	{
+		for (size_t i = 0; i < indent; ++i)
+		{
+			EE_PRINT("  ");
+		}
+
+		EE_PRINT("FN: ");
+		ee_str_view_print(stmt->as_func_decl.ident->scratch);
+		EE_PRINTLN("");
+
+		for (size_t i = 0; i < indent + 1; ++i)
+		{
+			EE_PRINT("  ");
+		}
+		EE_PRINT("ARGS: ");
+
+		const Token** tokens = (const Token**)stmt->as_func_decl.params.buffer;
+
+		for (size_t i = 0; i < ee_array_len(&stmt->as_func_decl.params); ++i)
+		{
+			ee_str_view_print(tokens[i]->scratch);
+
+			if (i != ee_array_len(&stmt->as_func_decl.params) - 1)
+				EE_PRINT(", ");
+		}
+		EE_PRINTLN("");
+
+		for (size_t i = 0; i < indent + 1; ++i)
+		{
+			EE_PRINT("  ");
+		}
+		EE_PRINTLN("BODY: ");
+
+		ee_pars_debug_print_stmt(stmt->as_func_decl.body, indent + 1);
+	} break;
+	case STMT_RETURN:
+	{
+		for (size_t i = 0; i < indent; ++i)
+		{
+			EE_PRINT("  ");
+		}
+		
+		EE_PRINTLN("RETURN: ");
+
+		if (stmt->as_ret.val != NULL)
+		{
+			ee_pars_debug_print_expr(stmt->as_ret.val, indent + 1);
+		}
+	} break;
 	default:
 	{
 		EE_ASSERT(0, "Invalid statement type for print (%d)", stmt->type);
@@ -785,6 +965,32 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 	}
 }
 
-void ee_pars_run(Parser* pars)
+void ee_pars_debug_print_module(Ast_Module* mod)
 {
+	Ast_Stmt** stmts = (Ast_Stmt**)mod->stmts.buffer;
+
+	EE_PRINTLN("-- MODULE: '%s' --\n", mod->name);
+
+	for (size_t i = 0; i < ee_array_len(&mod->stmts); ++i)
+	{
+		ee_pars_debug_print_stmt(stmts[i], 0);
+		EE_PRINTLN("");
+	}
+}
+
+Ast_Module ee_pars_run(Parser* pars)
+{
+	Ast_Module mod = { 0 };
+
+	mod.name = NULL;
+	mod.stmts = ee_array_new(256, sizeof(Ast_Stmt*), &pars->allocator);
+
+	while (!ee_pars_match(pars, TOKEN_EOF))
+	{
+		Ast_Stmt* stmt = ee_pars_stmt(pars);
+
+		ee_array_push(&mod.stmts, EE_RECAST_U8(stmt));
+	}
+
+	return mod;
 }

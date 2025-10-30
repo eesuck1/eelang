@@ -6,6 +6,9 @@
 
 #include "ee_lexer.h"
 
+#define EE_LOG_MAX_FORWARD     (2)
+#define EE_LOG_MAX_BACKWARD    (2)
+
 typedef enum Log_Level
 {
 	LOG_LVL_INFO    = 0,

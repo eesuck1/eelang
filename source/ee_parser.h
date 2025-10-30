@@ -2,6 +2,7 @@
 #define EE_PARSER_H
 
 #include "ee_lexer.h"
+#include "ee_log.h"
 
 #include "ee_array.h"
 #include "ee_string.h"
@@ -65,9 +66,10 @@ typedef enum Ast_Unop_Type
 
 typedef enum Ast_Type_Expr_Type
 {
-	TYPE_FLAT  = 0,
-	TYPE_TUPLE = 1,
-	TYPE_PTR   = 2,
+	TYPE_PRIMITIVE  = 0,
+	TYPE_STRUCT     = 1,
+	TYPE_PTR        = 2,
+	TYPE_FUNC       = 3,
 } Ast_Type_Expr_Type;
 
 typedef enum Ast_Expr_Type
@@ -83,24 +85,28 @@ typedef enum Ast_Expr_Type
 
 typedef enum Ast_Stmt_Type
 {
-	STMT_LET    = 0,
-	STMT_BLOCK  = 1,
-	STMT_IF     = 2,
-	STMT_FOR    = 3,
-	STMT_WHILE  = 4,
-	STMT_FN     = 5,
-	STMT_RETURN = 6,
-	STMT_MATCH  = 7,
-	STMT_STRUCT = 8,
-	STMT_ENUM   = 9,
-	STMT_UNION  = 10,
-	STMT_ASSIGN = 11,
-	STMT_EXPR   = 12,
+	STMT_LET       = 0,
+	STMT_BLOCK     = 1,
+	STMT_IF        = 2,
+	STMT_FOR       = 3,
+	STMT_WHILE     = 4,
+	STMT_FN        = 5,
+	STMT_RETURN    = 6,
+	STMT_MATCH     = 7,
+	STMT_STRUCT    = 8,
+	STMT_ENUM      = 9,
+	STMT_UNION     = 10,
+	STMT_ASSIGN    = 11,
+	STMT_EXPR      = 12,
 } Ast_Stmt_Type;
 
 typedef i32 Ast_Precedence;
+typedef i32 Ast_Custom_Type_Id;
+typedef i32 Bool;
+typedef size_t Usize;
 
 // Type statics
+static const Str_View _s_anonim_type = { .buffer = "anonymous", .len = sizeof("anonymous") - 1 };
 static const i32 _s_type_size_table[DTYPE_COUNT] = { 1, 2, 4, 8, 1, 2, 4, 8, 4, 8 };
 static const i32 _s_type_align_table[DTYPE_COUNT] = { 1, 2, 4, 8, 1, 2, 4, 8, 4, 8 };
 static const char* _s_type_name_table[DTYPE_COUNT] = { "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64" };
@@ -121,30 +127,47 @@ static const Token_Type _s_op_unop_token_type_table[UNOP_COUNT] = { '!', '*', '&
 
 static const Str_View _s_str_view_null = { 0 };
 
-typedef size_t Usize;
-
 typedef struct Ast_Expr Ast_Expr;
 typedef struct Ast_Stmt Ast_Stmt;
-typedef struct Ast_Node Ast_Node;
+typedef struct Ast_Type Ast_Type;
 
-typedef struct Ast_Func_Type_Info
+typedef struct Ast_Type_Func
 {
-	struct Ast_Type_Info* params;
-	struct Ast_Type_Info* ret;
-} Ast_Func_Type_Info;
+	Array  params;
+	Ast_Type* ret;
+} Ast_Type_Func;
 
-typedef struct Ast_Type_Info
+typedef struct Ast_Type_Primitive
+{
+	Ast_Data_Type dtype;
+} Ast_Type_Primitive;
+
+typedef struct Ast_Type_Struct
+{
+	Array members;
+} Ast_Type_Struct;
+
+typedef struct Ast_Type_Ptr
+{
+	Ast_Type* to;
+} Ast_Type_Ptr;
+
+typedef struct Ast_Type
 {
 	Ast_Type_Expr_Type type;
+	Str_View name;
+	Usize size;
+	Usize align;
+	Bool is_const;
 
 	union
 	{
-		const Token* as_flat;
-		Array as_tuple;
-		struct Ast_Type_Info* as_ptr_to;
-		Ast_Func_Type_Info as_func;
+		Ast_Type_Primitive as_primitive;
+		Ast_Type_Struct    as_struct;
+		Ast_Type_Ptr       as_ptr;
+		Ast_Type_Func      as_func;
 	};
-} Ast_Type_Info;
+} Ast_Type;
 
 // TODO(eesuck): remove type info from var and just store it globaly
 typedef struct Ast_Lit_Expr
@@ -249,8 +272,14 @@ typedef struct Ast_While_Stmt
 typedef struct Ast_Func_Decl_Stmt
 {
 	Array params;
-
+	Ast_Block_Stmt* body;
+	const Token* ident;
 } Ast_Func_Decl_Stmt;
+
+typedef struct Ast_Ret_Stmt
+{
+	Ast_Expr* val;
+} Ast_Ret_Stmt;
 
 typedef struct Ast_Stmt
 {
@@ -265,17 +294,24 @@ typedef struct Ast_Stmt
 		Ast_If_Stmt as_if;
 		Ast_For_Stmt as_for;
 		Ast_While_Stmt as_while;
+		Ast_Func_Decl_Stmt as_func_decl;
+		Ast_Ret_Stmt as_ret;
 	};
 } Ast_Stmt;
+
+typedef struct Ast_Module
+{
+	const char* name;
+	Array stmts;
+} Ast_Module;
 
 typedef struct Parser
 {
 	size_t pos;
-	Array nodes;
-	Dict var_types_table;
-	Dict types_table;
+	Dict symbols;
+	Dict types;
 	Allocator allocator;
-	
+	Logger logger;
 	const Array* tokens;
 } Parser;
 
@@ -292,6 +328,24 @@ EE_INLINE i32 ee_op_prec(Ast_Binop_Type op)
 EE_INLINE i32 ee_token_is_lit(const Token* token)
 {
 	return (token->type == TOKEN_LIT_INT) || (token->type == TOKEN_LIT_FLOAT) || (token->type == TOKEN_LIT_STR);
+}
+
+Ast_Type_Expr_Type ee_token_match_type(const Token* token)
+{
+	if (token->type == TOKEN_INVALID)
+	{
+		return DTYPE_COUNT;
+	}
+
+	for (Ast_Type_Expr_Type dtype = 0; dtype < DTYPE_COUNT; ++dtype)
+	{
+		if (memcmp(token->scratch.buffer, _s_type_name_table[dtype], _s_type_name_len_table[dtype]) == 0)
+		{
+			return dtype;
+		}
+	}
+
+	return DTYPE_COUNT;
 }
 
 Ast_Binop_Type ee_token_match_binop(const Token* token)
@@ -362,31 +416,39 @@ EE_INLINE const Token* ee_pars_eat(Parser* pars)
 	return (const Token*)ee_array_at(pars->tokens, pars->pos++);
 }
 
-EE_INLINE i32 ee_pars_match_or_panic(Parser* pars, Token_Type pattern, const char* message)
+EE_INLINE i32 ee_pars_match_or_panic(Parser* pars, Token_Type pattern, const char* message, ...)
 {
+	va_list args;
+	va_start(args, message);
+
 	if (ee_pars_peek(pars)->type != pattern)
 	{
-		EE_ASSERT(0, "Unexpected token");
-		EE_PRINT(message);
+		ee_log_error_token_va(&pars->logger, ee_pars_peek(pars), message, args);
+		EE_ASSERT(0, "");
 
 		return EE_FALSE;
 	}
 
 	ee_pars_advance(pars, 1);
+	va_end(args);
+
 	return EE_TRUE;
 }
 
-EE_INLINE i32 ee_pars_check_or_panic(Parser* pars, Token_Type pattern, const char* message)
+EE_INLINE i32 ee_pars_check_or_panic(Parser* pars, Token_Type pattern, const char* message, ...)
 {
-	EE_UNUSED(pars);
+	va_list args;
+	va_start(args, message);
 
 	if (ee_pars_peek(pars)->type != pattern)
 	{
-		EE_ASSERT(0, "Unexpected token");
-		EE_PRINT(message);
-	
+		ee_log_error_token_va(&pars->logger, ee_pars_peek(pars), message, args);
+		EE_ASSERT(0, "");
+
 		return EE_FALSE;
 	}
+
+	va_end(args);
 
 	return EE_TRUE;
 }
@@ -412,8 +474,9 @@ EE_INLINE i32 ee_pars_check(Parser* pars, Token_Type pattern)
 	return EE_TRUE;
 }
 
-Ast_Type_Info* ee_pars_type_info(Parser* pars);
+Ast_Type* ee_pars_type(Parser* pars);
 
+Ast_Type* ee_alloc_type(Parser* pars, Ast_Type_Expr_Type type);
 Ast_Expr* ee_alloc_expr(Parser* pars, Ast_Expr_Type type);
 Ast_Stmt* ee_alloc_stmt(Parser* pars, Ast_Stmt_Type type);
 
@@ -424,11 +487,13 @@ Ast_Expr* ee_pars_expr(Parser* pars);
 
 Ast_Stmt* ee_pars_stmt(Parser* pars);
 
-void ee_pars_debug_print_type_info(Ast_Type_Info* root, size_t indent);
+void ee_pars_debug_print_type(Ast_Type* root, size_t indent);
 void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent);
 void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent);
+void ee_pars_debug_print_module(Ast_Module* mod);
 
-Parser ee_pars_new(const Array* tokens, const Allocator* allocator);
-void ee_pars_run(Parser* pars);
+void ee_pars_init_types(Parser* pars);
+Parser ee_pars_new(const Lexer* lex, const Allocator* allocator);
+Ast_Module ee_pars_run(Parser* pars);
 
 #endif // EE_PARSER_H
