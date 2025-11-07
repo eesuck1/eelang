@@ -32,7 +32,7 @@
     <ClInclude Include="source\ee_log.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\ee_checker.h">
+    <ClInclude Include="source\ee_semantic.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

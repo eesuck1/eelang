@@ -390,8 +390,8 @@ void ee_lex_emit_token(Lexer* lex, Token_Type token_type, Str_View scratch)
 	token.type = token_type;
 	token.scratch = scratch;
 
-	token.pos = lex->pos;
-	token.chr = lex->chr - scratch.len;
+	token.pos  = lex->pos - scratch.len;
+	token.chr  = lex->chr - scratch.len;
 	token.line = lex->line;
 
 	ee_array_push(&lex->tokens, EE_RECAST_U8(token));
@@ -405,8 +405,8 @@ void ee_lex_emit_token_u64(Lexer* lex, Str_View scratch, u64 val)
 	token.scratch = scratch;
 	token.as_u64 = val;
 
-	token.pos = lex->pos;
-	token.chr = lex->chr - scratch.len;
+	token.pos  = lex->pos - scratch.len;
+	token.chr  = lex->chr - scratch.len;
 	token.line = lex->line;
 
 	ee_array_push(&lex->tokens, EE_RECAST_U8(token));
@@ -420,8 +420,8 @@ void ee_lex_emit_token_f64(Lexer* lex, Str_View scratch, f64 val)
 	token.scratch = scratch;
 	token.as_f64 = val;
 
-	token.pos = lex->pos;
-	token.chr = lex->chr - scratch.len;
+	token.pos  = lex->pos - scratch.len;
+	token.chr  = lex->chr - scratch.len;
 	token.line = lex->line;
 
 	ee_array_push(&lex->tokens, EE_RECAST_U8(token));
@@ -435,8 +435,8 @@ void ee_lex_emit_token_str_view(Lexer* lex, Token_Type token_type, Str_View scra
 	token.scratch = scratch;
 	token.as_str_view = val;
 
-	token.pos = lex->pos;
-	token.chr = lex->chr - scratch.len;
+	token.pos  = lex->pos - scratch.len;
+	token.chr  = lex->chr - scratch.len;
 	token.line = lex->line;
 
 	ee_array_push(&lex->tokens, EE_RECAST_U8(token));

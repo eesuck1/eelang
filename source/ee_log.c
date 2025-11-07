@@ -58,9 +58,9 @@ void ee_log_error_token_va(Logger* log, const Token* token, const char* fmt, va_
 		}
 	}
 
-	while (line_end < ee_str_len(&log->lexer->stream) && buf[line_end] != '\n')
+	while (line_end < (i64)ee_str_len(&log->lexer->stream) && buf[line_end] != '\n')
 	{
-		if (!isspace(buf[line_start]))
+		if (!isspace(buf[line_end]))
 		{
 			line_end_p = line_end;
 		}
@@ -68,9 +68,23 @@ void ee_log_error_token_va(Logger* log, const Token* token, const char* fmt, va_
 		line_end++;
 	}
 
+	i64 line_prev   = line_start - 1;
+	i64 line_prev_p = line_prev;
+
+	while (line_prev > 0 && buf[line_prev] != '\n')
+	{
+		line_prev--;
+
+		if (!isspace(buf[line_prev]))
+		{
+			line_prev_p = line_prev;
+		}
+	}
+
 	EE_ASSERT(line_end_p >= line_start_p, "Invalid bounbs for line (%lld, %lld)", line_start_p, line_end_p);
 
 	size_t line_len = (size_t)(line_end_p - line_start_p) + 1;
+	size_t prev_len = (size_t)(line_start_p - line_prev_p) - 1;
 
 	fprintf(stderr, "\033[96m");
 
@@ -79,14 +93,21 @@ void ee_log_error_token_va(Logger* log, const Token* token, const char* fmt, va_
 	vfprintf(stderr, fmt, args);
 	fputc('\n', stderr);
 
-	fprintf(stderr, "      | ");
+	if (prev_len > 0)
+	{ 
+		fprintf(stderr, " %6zu | ", token->line);
+		fwrite(&buf[line_prev_p], 1, prev_len, stderr);
+		fputc('\n', stderr);
+	}
+
+	fprintf(stderr, " %6zu | ", token->line + 1);
 	fwrite(&buf[line_start_p], 1, line_len, stderr);
 	fputc('\n', stderr);
 
-	fprintf(stderr, "      | ");
-	for (size_t i = 0; i < line_len; ++i)
+	fprintf(stderr, "        | ");
+	for (size_t i = line_start_p; i < (size_t)line_end_p; ++i)
 	{
-		if (i >= token->chr - line_start_p + token->pos && i < token->chr - line_start_p + token->scratch.len + token->pos)
+		if ((i >= token->pos) && (i < token->pos + token->scratch.len))
 		{
 			fputc('~', stderr);
 		}

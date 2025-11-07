@@ -207,4 +207,12 @@ EE_INLINE i32 ee_lex_check_many(const Lexer* lex, const char* pattern)
     return *pattern == '\0';
 }
 
+EE_INLINE i32 ee_token_scratch_equal(const Token* a, const Token* b)
+{
+    if (a->scratch.len != b->scratch.len)
+        return EE_FALSE;
+
+    return memcmp(a->scratch.buffer, b->scratch.buffer, a->scratch.len) == 0;
+}
+
 #endif // EE_LEXER_H
