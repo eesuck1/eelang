@@ -25,6 +25,7 @@ int main()
 
 	Sem_Analyzer sem = ee_sem_new(mod, log, &lex.allocator);
 	ee_sem_resolve_scopes(&sem);
+	ee_sem_debug_print(&sem);
 
 	return 0;
 }

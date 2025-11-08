@@ -451,6 +451,37 @@ EE_INLINE i32 ee_pars_check(Parser* pars, Token_Type pattern)
 	return EE_TRUE;
 }
 
+EE_INLINE void ee_print_indent(size_t indent)
+{
+	for (size_t i = 0; i < indent; ++i)
+	{
+		EE_PRINT("  ");
+	}
+}
+
+EE_INLINE void ee_print_with_indent(size_t indent, const char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	ee_print_indent(indent);
+	vprintf(fmt, args);
+
+	va_end(args);
+}
+
+EE_INLINE void ee_println_with_indent(size_t indent, const char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	ee_print_indent(indent);
+	vprintf(fmt, args);
+	putc('\n', stdout);
+
+	va_end(args);
+}
+
 Ast_Type* ee_pars_type(Parser* pars);
 
 Ast_Type* ee_alloc_type(Parser* pars, Ast_Type_Expr_Type type);

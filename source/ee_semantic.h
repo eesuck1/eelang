@@ -208,6 +208,8 @@ void ee_sem_resolve_func_headers(Sem_Analyzer* sem, Ast_Stmt* block, Sem_Scope* 
 void ee_sem_resolve_scopes(Sem_Analyzer* sem);
 void ee_sem_resolve_stmt(Sem_Analyzer* sem, Ast_Stmt* stmt, Sem_Scope* parent, Sem_Type* func_ret_type);
 Sem_Analyzer ee_sem_new(Ast_Module* mod, Logger log, const Allocator* allocator);
+void ee_sem_debug_print_scope(Sem_Scope* sem, size_t indent);
+void ee_sem_debug_print(Sem_Analyzer* sem);
 
 EE_INLINE Bool ee_type_is_int(Sem_Type* type)
 {

@@ -476,20 +476,13 @@ void ee_pars_debug_print_type(Ast_Type* root, size_t indent)
 
 	if (root->type == TYPE_PRIMITIVE)
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
-
+		ee_print_indent(indent);
 		ee_str_view_print(root->as_primitive.ident->scratch);
 		EE_PRINTLN("");
 	}
 	else if (root->type == TYPE_STRUCT)
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent);
 		EE_PRINTLN("TYPE_TUPLE: ");
 
 		Ast_Type** members = (Ast_Type**)root->as_struct.members.buffer;
@@ -501,11 +494,7 @@ void ee_pars_debug_print_type(Ast_Type* root, size_t indent)
 	}
 	else if (root->type == TYPE_PTR)
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
-
+		ee_print_indent(indent);
 		EE_PRINTLN("TYPE_PTR: ");
 		ee_pars_debug_print_type(root->as_ptr.to, indent);
 	}
@@ -517,10 +506,7 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 	{
 	case EXPR_LIT:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent);
 
 		if (expr->as_lit.token->type == TOKEN_LIT_INT)
 		{
@@ -541,22 +527,14 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 	} break;
 	case EXPR_IDENT:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
-
+		ee_print_indent(indent);
 		EE_PRINT("IDENT: ");
 		ee_str_view_print(expr->as_ident.token->scratch);
 		EE_PRINTLN("");
 	} break;
 	case EXPR_BINOP:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
-
+		ee_print_indent(indent);
 		EE_PRINTLN("BINOP: '%s'", _s_op_binop_name_table[expr->as_binop.type]);
 
 		ee_pars_debug_print_expr(expr->as_binop.left, indent + 1);
@@ -564,28 +542,17 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 	} break;
 	case EXPR_UNOP:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
-
+		ee_print_indent(indent);
 		EE_PRINTLN("UNOP: '%s'", _s_op_unop_name_table[expr->as_unop.type]);
 
 		ee_pars_debug_print_expr(expr->as_unop.expr, indent + 1);
 	} break;
 	case EXPR_FUNC_CALL:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
-
+		ee_print_indent(indent);
 		EE_PRINTLN("FUNC_CALL: ");
 
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("FUNC_EXPR: ");
 
 		ee_pars_debug_print_expr(expr->as_func_call.func, indent + 1);
@@ -593,10 +560,7 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 
 		Ast_Expr** args = (Ast_Expr**)expr->as_func_call.args.buffer;
 		
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("FUNC_ARGS: ");
 		for (size_t i = 0; i < ee_array_len(&expr->as_func_call.args); ++i)
 		{
@@ -605,24 +569,14 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 	} break;
 	case EXPR_ACCESS:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
-
+		ee_print_indent(indent);
 		EE_PRINTLN("ACCESS: ");
 
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("ACCESS_EXPR: ");
+		
 		ee_pars_debug_print_expr(expr->as_access.entity, indent + 1);
-
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 
 		EE_PRINT("MEMBER: ");
 		for (size_t i = 0; i < expr->as_access.member->scratch.len; ++i)
@@ -633,25 +587,15 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 	} break;
 	case EXPR_INDEX:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent);
 
 		EE_PRINTLN("INDEX: ");
 
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("INDEX_EXPR: ");
 
 		ee_pars_debug_print_expr(expr->as_index.entity, indent + 1);
-
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 
 		EE_PRINTLN("INDEX_ARG: ");
 		ee_pars_debug_print_expr(expr->as_index.index, indent + 2);
@@ -669,10 +613,7 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 	{
 	case STMT_VAR_DECL:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent);
 
 		if (ee_var_decl_has_flag(stmt, AST_CONST))
 			EE_PRINT("COSNT: ");
@@ -682,10 +623,7 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 		ee_str_view_print(stmt->as_var_decl.ident->scratch);
 		EE_PRINTLN("");
 		
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 
 		EE_PRINTLN("LET_VAL: ");
 		if (stmt->as_var_decl.val != NULL)
@@ -694,20 +632,13 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 		}
 		else
 		{
-			for (size_t i = 0; i < indent + 1; ++i)
-			{
-				EE_PRINT("  ");
-			}
+			ee_print_indent(indent + 1);
 			EE_PRINTLN("VAL_UNINIT");
 		}
 	} break;
 	case STMT_BLOCK:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
-
+		ee_print_indent(indent);
 		EE_PRINTLN("BLOCK: ");
 
 		Ast_Stmt** block_stmt = (Ast_Stmt**)stmt->as_block.stmts.buffer;
@@ -719,26 +650,14 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 	} break;
 	case STMT_ASSIGN:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
-
+		ee_print_indent(indent);
 		EE_PRINTLN("ASSIGN: ");
 
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
-
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("ASSIGN_LVAL:");
 
 		ee_pars_debug_print_expr(stmt->as_assign.ident, indent + 1);
-
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 
 		EE_PRINTLN("ASSIGN_RVAL: ");
 		if (stmt->as_assign.val != NULL)
@@ -747,55 +666,37 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 		}
 		else
 		{
-			for (size_t i = 0; i < indent + 1; ++i)
-			{
-				EE_PRINT("  ");
-			}
+			ee_print_indent(indent + 1);
 			EE_PRINTLN("VAL_UNINIT");
 		}
 	} break;
 	case STMT_EXPR:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
-
+		ee_print_indent(indent);
+		
 		EE_PRINTLN("STMT_EXPR: ");
 		ee_pars_debug_print_expr(stmt->as_expr.expr, indent + 1);
 
 	} break;
 	case STMT_IF:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent);
 
 		EE_PRINTLN("IF:");
 		
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("CONDITION:");
 
 		ee_pars_debug_print_expr(stmt->as_if.cond, indent + 2);
 		
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("IF_BLOCK:");
 
 		ee_pars_debug_print_stmt(stmt->as_if.if_block, indent + 2);
 
 		if (stmt->as_if.else_block != NULL)
 		{
-			for (size_t i = 0; i < indent + 1; ++i)
-			{
-				EE_PRINT("  ");
-			}
+			ee_print_indent(indent + 1);
 			EE_PRINTLN("ELSE_BLOCK:");
 
 			ee_pars_debug_print_stmt(stmt->as_if.else_block, indent + 2);
@@ -803,73 +704,46 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 	} break;
 	case STMT_FOR:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent);
 
 		EE_PRINTLN("FOR:");
 
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 		EE_PRINT("IT: ");
 		ee_str_view_print(stmt->as_for.it->scratch);
 		EE_PRINTLN("");
 
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("RANGE:");
 		ee_pars_debug_print_expr(stmt->as_for.range, indent + 1);
 
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("BODY:");
 		ee_pars_debug_print_stmt(stmt->as_for.body, indent + 1);
 	} break;
 	case STMT_WHILE:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent);
 
 		EE_PRINTLN("WHILE:");
 
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("CONDITION: ");
 		ee_pars_debug_print_expr(stmt->as_while.cond, indent + 1);
 
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("BODY: ");
 		ee_pars_debug_print_stmt(stmt->as_while.body, indent + 2);
 	} break;
 	case STMT_FN:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent);
 
 		EE_PRINT("FN: ");
 		ee_str_view_print(stmt->as_func_decl.ident->scratch);
 		EE_PRINTLN("");
 
-		for (size_t i = 0; i < indent + 1; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent + 1);
 		EE_PRINT("ARGS: ");
 
 		const Token** tokens = (const Token**)stmt->as_func_decl.params.buffer;
@@ -893,10 +767,7 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 	} break;
 	case STMT_RETURN:
 	{
-		for (size_t i = 0; i < indent; ++i)
-		{
-			EE_PRINT("  ");
-		}
+		ee_print_indent(indent);
 		
 		EE_PRINTLN("RETURN: ");
 

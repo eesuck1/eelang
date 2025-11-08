@@ -884,3 +884,41 @@ Sem_Analyzer ee_sem_new(Ast_Module* mod, Logger log, const Allocator* allocator)
 
 	return out;
 }
+
+void ee_sem_debug_print_scope(Sem_Scope* sem, size_t indent)
+{
+	ee_println_with_indent(indent, "SCOPE: ");
+	
+	if (ee_dict_count(&sem->symbols) > 0)
+		ee_println_with_indent(indent, "SYMBOLS: ");
+
+	Token* symbol = NULL;
+	Sem_Entry entry = { 0 };
+
+	DictIter iter = ee_dict_iter_new(&sem->symbols);
+
+	while (ee_dict_iter_next(&iter, EE_RECAST_U8(symbol), EE_RECAST_U8(entry)))
+	{
+		EE_ASSERT(symbol != NULL || entry.type_info != NULL, "Trying to print invalid entry");
+
+		if (entry.type_info->type == TYPE_PRIMITIVE)
+			ee_print_with_indent(indent + 1, "TYPE (%s) ", _s_dtype_names[entry.type_info->as_primitive.dtype]);
+		else
+			ee_print_with_indent(indent + 1, "COMPLEX_TYPE ");
+
+		EE_PRINTLN("ENTRY '%.*s'", (u32)symbol->scratch.len, symbol->scratch.buffer);
+	}
+
+	ee_println_with_indent(indent, "SUB_SCOPES: ");
+	Sem_Scope** scopes = (Sem_Scope**)sem->children.buffer;
+
+	for (size_t i = 0; i < ee_array_len(&sem->children); ++i)
+	{
+		ee_sem_debug_print_scope(scopes[i], indent + 1);
+	}
+}
+
+void ee_sem_debug_print(Sem_Analyzer* sem)
+{
+	ee_sem_debug_print_scope(sem->global_scope, 0);
+}
