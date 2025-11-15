@@ -58,6 +58,12 @@ static const char* _s_dtype_names[DTYPE_COUNT] = {
 	"f32", "f64", "void", "bool", "str",
 };
 
+static const Usize _s_dtype_lens_names[DTYPE_COUNT] = {
+	2, 3, 3, 3,
+	2, 3, 3, 3,
+	3, 3, 4, 4, 3,
+};
+
 static const Usize _s_dtype_sizes[DTYPE_COUNT] = {
 	1, 2, 4, 8,
 	1, 2, 4, 8,
@@ -173,10 +179,11 @@ typedef struct Sem_Entry
 
 typedef struct Sem_Scope
 {
-	Dict symbols;
 	Dict types;
 	Sem_Scope* parent;
+	Array symbols;
 	Array children;
+	size_t top;
 } Sem_Scope;
 
 typedef struct Sem_Analyzer
@@ -196,7 +203,7 @@ Sem_Entry* ee_alloc_entry(Sem_Analyzer* sem, Sem_Entry_Type type, const Token* i
 Sem_Scope* ee_alloc_scope(Sem_Analyzer* sem, Sem_Scope* parent);
 Sem_Entry* ee_scope_lookup_entry(Sem_Scope* scope, const Token* ident);
 Sem_Type* ee_scope_lookup_type(Sem_Analyzer* sem, Sem_Scope* scope, const Token* ident);
-void ee_scope_set_entry(Sem_Scope* scope, const Token* ident, Sem_Entry* entry);
+void ee_scope_set_entry(Sem_Scope* scope, Sem_Entry* entry);
 void ee_scope_set_type(Sem_Scope* scope, const Token* ident, Sem_Type* entry);
 
 Sem_Type* ee_sem_create_error_type(Sem_Analyzer* sem, const Token* token);

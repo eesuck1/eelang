@@ -470,8 +470,14 @@ Sem_Type* ee_sem_resolve_type(Sem_Analyzer* sem, Ast_Type* ast_type, Sem_Scope* 
 		out->size = 8;
 		out->align = 8;
 
-		if (ast_type->as_func.ret != NULL)
-			out->as_func.ret = ee_sem_resolve_type(sem, ast_type->as_func.ret, scope);
+		Sem_Type* ret_type = NULL;
+
+		if (ast_type->as_func.ret == NULL)
+			ret_type = &sem->builtin_types[DTYPE_VOID];
+		else
+			ret_type = ee_sem_resolve_type(sem, ast_type->as_func.ret, scope);
+
+		out->as_func.ret = ret_type;
 
 		return out;
 	} break;
@@ -498,7 +504,7 @@ void ee_sem_resolve_func_headers(Sem_Analyzer* sem, Ast_Stmt* block, Sem_Scope* 
 		ee_sem_check_or_panic(sem, ee_scope_lookup_entry(scope, stmt->as_func_decl.ident) == NULL, stmt->as_func_decl.ident,
 			"Trying to redifine an existing function");
 
-		ee_scope_set_entry(scope, func_entry->ident, func_entry);
+		ee_scope_set_entry(scope, func_entry);
 	}
 }
 
@@ -564,7 +570,7 @@ void ee_sem_resolve_stmt(Sem_Analyzer* sem, Ast_Stmt* stmt, Sem_Scope* parent, S
 		ee_sem_check_or_panic(sem, ee_scope_lookup_entry(parent, stmt->as_var_decl.ident) == NULL, stmt->as_var_decl.ident,
 			"Trying to redefine an existing variable");
 
-		ee_scope_set_entry(parent, var_entry->ident, var_entry);
+		ee_scope_set_entry(parent, var_entry);
 	} break;
 	case STMT_FN:
 	{
@@ -582,7 +588,7 @@ void ee_sem_resolve_stmt(Sem_Analyzer* sem, Ast_Stmt* stmt, Sem_Scope* parent, S
 			Sem_Type* sem_type = ee_sem_resolve_type(sem, ast_type, parent);
 
 			Sem_Entry* param_entry = ee_alloc_entry(sem, SEM_ENTRY_VAR, params[i], stmt, sem_type, (Sem_Value) { 0 });
-			ee_scope_set_entry(func_scope, param_entry->ident, param_entry);
+			ee_scope_set_entry(func_scope, param_entry);
 		}
 
 		Sem_Entry* func_entry = ee_scope_lookup_entry(parent, stmt->as_func_decl.ident);
@@ -648,7 +654,7 @@ void ee_sem_resolve_stmt(Sem_Analyzer* sem, Ast_Stmt* stmt, Sem_Scope* parent, S
 		Sem_Scope* for_scope = ee_alloc_scope(sem, parent);
 		Sem_Entry* it_entry = ee_alloc_entry(sem, SEM_ENTRY_VAR, stmt->as_for.it, stmt, it_type, (Sem_Value) { 0 });
 
-		ee_scope_set_entry(for_scope, stmt->as_for.it, it_entry);
+		ee_scope_set_entry(for_scope, it_entry);
 		ee_sem_resolve_stmt(sem, stmt->as_for.body, for_scope, func_ret_type);
 	} break;
 	case STMT_WHILE:
@@ -787,8 +793,9 @@ Sem_Scope* ee_alloc_scope(Sem_Analyzer* sem, Sem_Scope* parent)
 
 	out->parent = parent;
 	out->children = ee_array_new(32, sizeof(Sem_Scope*), &sem->allocator);
-	out->symbols = ee_dict_new(32, sizeof(const Token*), sizeof(Sem_Entry), config);
+	out->symbols = ee_array_new(32, sizeof(Sem_Entry), &sem->allocator);
 	out->types = ee_dict_new(32, sizeof(const Token*), sizeof(Sem_Type*), config);
+	out->top = 0;
 
 	if (parent != NULL)
 		ee_array_push(&parent->children, EE_RECAST_U8(out));
@@ -803,8 +810,16 @@ Sem_Entry* ee_scope_lookup_entry(Sem_Scope* scope, const Token* ident)
 
 	while (scope)
 	{
-		if (ee_dict_contains(&scope->symbols, EE_RECAST_U8(ident)))
-			return (Sem_Entry*)ee_dict_at(&scope->symbols, EE_RECAST_U8(ident));
+		Sem_Entry* entries = (Sem_Entry*)scope->symbols.buffer;
+
+		for (size_t i = 0; i < ee_array_len(&scope->symbols); ++i)
+		{
+			if (entries[i].ident->scratch.len == ident->scratch.len &&
+				memcmp(entries[i].ident->scratch.buffer, ident->scratch.buffer, ident->scratch.len) == 0)
+			{
+				return &entries[i];
+			}
+		}
 
 		scope = scope->parent;
 	}
@@ -833,11 +848,9 @@ Sem_Type* ee_scope_lookup_type(Sem_Analyzer* sem, Sem_Scope* scope, const Token*
 	return NULL;
 }
 
-void ee_scope_set_entry(Sem_Scope* scope, const Token* ident, Sem_Entry* entry)
+void ee_scope_set_entry(Sem_Scope* scope, Sem_Entry* entry)
 {
-	EE_ASSERT(ident != NULL, "Trying to set NULL identifier");
-
-	ee_dict_set(&scope->symbols, EE_RECAST_U8(ident), (const u8*)entry);
+	ee_array_push(&scope->symbols, (const u8*)entry);
 }
 
 void ee_scope_set_type(Sem_Scope* scope, const Token* ident, Sem_Type* entry)
@@ -892,17 +905,14 @@ void ee_sem_debug_print_scope(Sem_Scope* sem, size_t indent)
 	if (ee_dict_count(&sem->symbols) > 0)
 		ee_println_with_indent(indent, "SYMBOLS: ");
 
-	Token* symbol = NULL;
-	Sem_Entry entry = { 0 };
+	Sem_Entry* entries = (Sem_Entry*)sem->symbols.buffer;
 
-	DictIter iter = ee_dict_iter_new(&sem->symbols);
-
-	while (ee_dict_iter_next(&iter, EE_RECAST_U8(symbol), EE_RECAST_U8(entry)))
+	for (size_t i = 0; i < ee_array_len(&sem->symbols); ++i)
 	{
-		EE_ASSERT(symbol != NULL || entry.type_info != NULL, "Trying to print invalid entry");
+		const Token* symbol = entries[i].ident;
 
-		if (entry.type_info->type == TYPE_PRIMITIVE)
-			ee_print_with_indent(indent + 1, "TYPE (%s) ", _s_dtype_names[entry.type_info->as_primitive.dtype]);
+		if (entries[i].type_info->type == TYPE_PRIMITIVE)
+			ee_print_with_indent(indent + 1, "TYPE (%s) ", _s_dtype_names[entries[i].type_info->as_primitive.dtype]);
 		else
 			ee_print_with_indent(indent + 1, "COMPLEX_TYPE ");
 

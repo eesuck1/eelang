@@ -5,6 +5,8 @@
 #include "ee_log.c"
 #include "ee_semantic.h"
 #include "ee_semantic.c"
+#include "ee_codegen.h"
+#include "ee_codegen.c"
 
 int main()
 {
@@ -26,6 +28,9 @@ int main()
 	Sem_Analyzer sem = ee_sem_new(mod, log, &lex.allocator);
 	ee_sem_resolve_scopes(&sem);
 	ee_sem_debug_print(&sem);
+
+	Codegen gen = ee_gen_new(sem.global_scope, mod, "assets/test_gen.c");
+	ee_gen_run(&gen);
 
 	return 0;
 }

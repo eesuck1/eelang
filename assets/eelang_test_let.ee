@@ -1,2 +1,2 @@
 let a: u64 = 1;
-let b: str = a;
+let b = a;
