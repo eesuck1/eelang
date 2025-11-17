@@ -47,24 +47,19 @@ typedef enum Ast_Unop_Type
 	UNOP_COUNT,
 } Ast_Unop_Type;
 
-typedef enum Ast_Type_Expr_Type
-{
-	TYPE_PRIMITIVE  = 0,
-	TYPE_STRUCT     = 1,
-	TYPE_PTR        = 2,
-	TYPE_FUNC       = 3,
-	TYPE_ERROR      = 4,
-} Ast_Type_Expr_Type;
-
 typedef enum Ast_Expr_Type
 {
-	EXPR_LIT       = 0,
-	EXPR_BINOP     = 1,
-	EXPR_IDENT     = 2,
-	EXPR_UNOP      = 3,
-	EXPR_FUNC_CALL = 4,
-	EXPR_ACCESS    = 5,
-	EXPR_INDEX     = 6,
+	EXPR_LIT         = 0,
+	EXPR_BINOP       = 1,
+	EXPR_IDENT       = 2,
+	EXPR_UNOP        = 3,
+	EXPR_FUNC_CALL   = 4,
+	EXPR_ACCESS      = 5,
+	EXPR_INDEX       = 6,
+	EXPR_TYPE_STRUCT = 7,
+	EXPR_TYPE_TUPLE  = 8,
+	EXPR_TYPE_UNION  = 9,
+	EXPR_TYPE_ARRAY  = 10,
 } Ast_Expr_Type;
 
 typedef enum Ast_Stmt_Type
@@ -84,9 +79,14 @@ typedef enum Ast_Stmt_Type
 	STMT_EXPR      = 12,
 } Ast_Stmt_Type;
 
+typedef enum Ast_Type_Expr_Flag
+{
+	TYPE_EXPR_CONST = 0,
+} Ast_Type_Expr_Flag;
+
 typedef enum Ast_Flag
 {
-	AST_CONST     = (1 << 0),
+	AST_CONST = 0,
 } Ast_Flag;
 
 typedef i32 Ast_Precedence;
@@ -112,41 +112,6 @@ static const Token _s_usize_token = { .type = TOKEN_IDENTIFIER, 0, 0, 0, 0, .scr
 
 typedef struct Ast_Expr Ast_Expr;
 typedef struct Ast_Stmt Ast_Stmt;
-typedef struct Ast_Type Ast_Type;
-
-typedef struct Ast_Type_Func
-{
-	Array  params;
-	Ast_Type* ret;
-} Ast_Type_Func;
-
-typedef struct Ast_Type_Primitive
-{
-	const Token* ident;
-} Ast_Type_Primitive;
-
-typedef struct Ast_Type_Struct
-{
-	Array members;
-} Ast_Type_Struct;
-
-typedef struct Ast_Type_Ptr
-{
-	Ast_Type* to;
-} Ast_Type_Ptr;
-
-typedef struct Ast_Type
-{
-	Ast_Type_Expr_Type type;
-
-	union
-	{
-		Ast_Type_Primitive as_primitive;
-		Ast_Type_Struct    as_struct;
-		Ast_Type_Ptr       as_ptr;
-		Ast_Type_Func      as_func;
-	};
-} Ast_Type;
 
 // TODO(eesuck): remove type info from var and just store it globaly
 typedef struct Ast_Lit_Expr
@@ -190,6 +155,29 @@ typedef struct Ast_Index_Expr
 	Ast_Expr* index;
 } Ast_Index_Expr;
 
+typedef struct Ast_Type_Expr_Struct
+{
+	Array members;
+	Array types;
+} Ast_Type_Expr_Struct;
+
+typedef struct Ast_Type_Expr_Tuple
+{
+	Array types;
+} Ast_Type_Expr_Tuple;
+
+typedef struct Ast_Type_Expr_Union
+{
+	Array members;
+	Array types;
+} Ast_Type_Expr_Union;
+
+typedef struct Ast_Type_Expr_Array
+{
+	Ast_Expr* size;
+	Ast_Expr* type_expr;
+} Ast_Type_Expr_Array;
+
 typedef struct Ast_Expr
 {
 	Ast_Expr_Type type;
@@ -203,6 +191,10 @@ typedef struct Ast_Expr
 		Ast_Func_Call_Expr as_func_call;
 		Ast_Access_Expr as_access;
 		Ast_Index_Expr as_index;
+		Ast_Type_Expr_Struct as_type_struct;
+		Ast_Type_Expr_Tuple as_type_tuple;
+		Ast_Type_Expr_Union as_type_union;
+		Ast_Type_Expr_Array as_type_array;
 	};
 } Ast_Expr;
 
@@ -210,7 +202,7 @@ typedef struct Ast_Var_Decl_Stmt
 {
 	const Token* ident;
 	Ast_Expr* val;
-	Ast_Type* type_info;
+	Ast_Expr* type_expr;
 } Ast_Var_Decl_Stmt;
 
 typedef struct Ast_Assign_Stmt
@@ -251,10 +243,11 @@ typedef struct Ast_While_Stmt
 
 typedef struct Ast_Func_Decl_Stmt
 {
-	Array params;
-	Ast_Stmt* body;
 	const Token* ident;
-	Ast_Type* type_info;
+	Array param_idents;
+	Array param_types;
+	Ast_Expr* ret_type;
+	Ast_Stmt* body;
 } Ast_Func_Decl_Stmt;
 
 typedef struct Ast_Ret_Stmt
@@ -322,7 +315,8 @@ EE_INLINE i32 ee_op_prec(Ast_Binop_Type op)
 
 EE_INLINE i32 ee_token_is_lit(const Token* token)
 {
-	return (token->type == TOKEN_LIT_INT) || (token->type == TOKEN_LIT_FLOAT) || (token->type == TOKEN_LIT_STR);
+	return (token->type == TOKEN_LIT_INT) || (token->type == TOKEN_LIT_FLOAT) || (token->type == TOKEN_LIT_STR) || 
+		(token->type == TOKEN_TRUE) || (token->type == TOKEN_FALSE);
 }
 
 Ast_Binop_Type ee_token_match_binop(const Token* token)
@@ -482,12 +476,10 @@ EE_INLINE void ee_println_with_indent(size_t indent, const char* fmt, ...)
 	va_end(args);
 }
 
-Ast_Type* ee_pars_type(Parser* pars);
-
-Ast_Type* ee_alloc_type(Parser* pars, Ast_Type_Expr_Type type);
 Ast_Expr* ee_alloc_expr(Parser* pars, Ast_Expr_Type type);
 Ast_Stmt* ee_alloc_stmt(Parser* pars, Ast_Stmt_Type type);
 
+Ast_Expr* ee_pars_primary(Parser* pars);
 Ast_Expr* ee_pars_atom(Parser* pars);
 Ast_Expr* ee_pars_postfix(Parser* pars, Ast_Expr* atom);
 Ast_Expr* ee_pars_expr_1(Parser* pars, Ast_Expr* lhs, Ast_Precedence min_prec);
@@ -495,7 +487,6 @@ Ast_Expr* ee_pars_expr(Parser* pars);
 
 Ast_Stmt* ee_pars_stmt(Parser* pars);
 
-void ee_pars_debug_print_type(Ast_Type* root, size_t indent);
 void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent);
 void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent);
 void ee_pars_debug_print_module(Ast_Module* mod);

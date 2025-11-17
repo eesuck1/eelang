@@ -27,70 +27,6 @@ Parser ee_pars_new(const Lexer* lex, Logger log, const Allocator* allocator)
 	return out;
 }
 
-Ast_Type* ee_pars_type(Parser* pars)
-{
-	Ast_Type* type = NULL;
-	
-	if (ee_pars_check(pars, TOKEN_IDENTIFIER))
-	{
-		type = ee_alloc_type(pars, TYPE_PRIMITIVE);
-		const Token* token = ee_pars_eat(pars);
-
-		type->as_primitive.ident = token;
-	}
-	else if (ee_pars_match(pars, '('))
-	{
-		type = ee_alloc_type(pars, TYPE_STRUCT);
-		type->as_struct.members = ee_array_new(8, sizeof(Ast_Type*), &pars->allocator);
-
-		if (ee_pars_check(pars, ')'))
-		{
-			ee_log_error_token(&pars->logger, ee_pars_peek(pars), "The empty structure types are not allowed, expected the tuple of types, but given empty");
-		}
-
-		do
-		{
-			Ast_Type* member = ee_pars_type(pars);
-			ee_array_push(&type->as_struct.members, EE_RECAST_U8(member));
-		} while (ee_pars_match(pars, ','));
-
-		ee_pars_match_or_panic(pars, ')', "Expected ')' after type list");
-	}
-	else if (ee_pars_match(pars, '&'))
-	{
-		type = ee_alloc_type(pars, TYPE_PTR);
-		type->as_ptr.to = ee_pars_type(pars);
-	}
-	else if (ee_pars_match(pars, TOKEN_AND))
-	{
-		type = ee_alloc_type(pars, TYPE_PTR);
-		Ast_Type* inner_ptr = ee_alloc_type(pars, TYPE_PTR);
-
-		inner_ptr->as_ptr.to = ee_pars_type(pars);
-		type->as_ptr.to = inner_ptr;
-	}
-	else
-	{
-		EE_ASSERT(0, "Invalid token for type expression (%d)", ee_pars_peek(pars)->type);
-
-		return NULL;
-	}
-
-	EE_ASSERT(type != NULL, "Invalid type information");
-
-	return type;
-}
-
-Ast_Type* ee_alloc_type(Parser* pars, Ast_Type_Expr_Type type)
-{
-	Ast_Type* type_info = pars->allocator.alloc_fn(&pars->allocator, sizeof(*type_info));
-	EE_ASSERT(type_info != NULL, "Unable to allocate memory");
-
-	type_info->type = type;
-
-	return type_info;
-}
-
 Ast_Expr* ee_alloc_expr(Parser* pars, Ast_Expr_Type type)
 {
 	Ast_Expr* out = pars->allocator.alloc_fn(&pars->allocator, sizeof(*out));
@@ -113,35 +49,99 @@ Ast_Stmt* ee_alloc_stmt(Parser* pars, Ast_Stmt_Type type)
 	return stmt;
 }
 
-Ast_Expr* ee_pars_atom(Parser* pars)
+Ast_Expr* ee_pars_primary(Parser* pars)
 {
 	Ast_Expr* atom = NULL;
-
-	const Token* token = ee_pars_eat(pars);
+	const Token* token = ee_pars_peek(pars);
 
 	if (ee_token_is_lit(token))
 	{
 		atom = ee_alloc_expr(pars, EXPR_LIT);
-		atom->as_lit.token = token;
+		atom->as_lit.token = ee_pars_eat(pars);
 	}
 	else if (token->type == TOKEN_IDENTIFIER)
 	{
 		atom = ee_alloc_expr(pars, EXPR_IDENT);
-		atom->as_ident.token = token;
+		atom->as_ident.token = ee_pars_eat(pars);
 	}
-	else if (token->type == '(')
+	else if (ee_pars_match(pars, '('))
 	{
-		atom = ee_pars_expr(pars);
-		ee_pars_match_or_panic(pars, ')', "Unmatched paren in group expression");
-	}
-	else if (ee_token_match_unop(token) != UNOP_COUNT)
-	{
-		atom = ee_alloc_expr(pars, EXPR_UNOP);
-		atom->as_unop.type = ee_token_match_unop(token);
-		atom->as_unop.expr = ee_pars_atom(pars);
-	}
+		if (ee_pars_match(pars, ')'))
+		{
+			atom = ee_alloc_expr(pars, EXPR_TYPE_TUPLE);
+			atom->as_type_tuple.types = ee_array_new(0, sizeof(Ast_Expr*), &pars->allocator);
 
-	atom = ee_pars_postfix(pars, atom);
+			return atom;
+		}
+
+		if (ee_pars_check(pars, TOKEN_IDENTIFIER) && ee_pars_peek_next(pars, 1)->type == ':')
+		{
+			atom = ee_alloc_expr(pars, EXPR_TYPE_STRUCT);
+			atom->as_type_struct.members = ee_array_new(8, sizeof(Token*), &pars->allocator);
+			atom->as_type_struct.types = ee_array_new(8, sizeof(Ast_Expr*), &pars->allocator);
+
+			do
+			{
+				const Token* member = ee_pars_eat(pars);
+				ee_pars_match_or_panic(pars, ':', "Expected ':' in struct type");
+				Ast_Expr* type_expr = ee_pars_expr(pars);
+
+				ee_array_push(&atom->as_type_struct.members, EE_RECAST_U8(member));
+				ee_array_push(&atom->as_type_struct.types, EE_RECAST_U8(type_expr));
+			} while (ee_pars_match(pars, ','));
+		}
+		else
+		{
+			Ast_Expr* inner_expr = ee_pars_expr(pars);
+
+			if (ee_pars_check(pars, ','))
+			{
+				atom = ee_alloc_expr(pars, EXPR_TYPE_TUPLE);
+				atom->as_type_tuple.types = ee_array_new(8, sizeof(Ast_Expr*), &pars->allocator);
+
+				ee_array_push(&atom->as_type_tuple.types, EE_RECAST_U8(inner_expr));
+
+				while (ee_pars_match(pars, ','))
+				{
+					Ast_Expr* member = ee_pars_expr(pars);
+					ee_array_push(&atom->as_type_tuple.types, EE_RECAST_U8(member));
+				}
+			}
+			else if (ee_pars_check(pars, '|'))
+			{
+				atom = ee_alloc_expr(pars, EXPR_TYPE_UNION);
+				atom->as_type_union.types = ee_array_new(8, sizeof(Ast_Expr*), &pars->allocator);
+
+				ee_array_push(&atom->as_type_union.types, EE_RECAST_U8(inner_expr));
+
+				while (ee_pars_match(pars, '|'))
+				{
+					Ast_Expr* member = ee_pars_expr(pars);
+					ee_array_push(&atom->as_type_union.types, EE_RECAST_U8(member));
+				}
+			}
+			else
+			{
+				atom = inner_expr;
+			}
+		}
+
+		ee_pars_match_or_panic(pars, ')', "Unmatched paren in complex expression");
+	}
+	else if (ee_pars_match(pars, '['))
+	{
+		atom = ee_alloc_expr(pars, EXPR_TYPE_ARRAY);
+		atom->as_type_array.size = ee_pars_expr(pars);
+
+		ee_pars_match_or_panic(pars, ']', "Expected ']' after array size");
+
+		atom->as_type_array.type_expr = ee_pars_atom(pars);
+	}
+	else
+	{
+		ee_log_error_token(&pars->logger, token, "Unexpected token in expression");
+		return NULL;
+	}
 
 	return atom;
 }
@@ -203,6 +203,27 @@ Ast_Expr* ee_pars_postfix(Parser* pars, Ast_Expr* atom)
 	}
 
 	return atom;
+}
+
+Ast_Expr* ee_pars_atom(Parser* pars)
+{
+	Ast_Expr* atom = NULL;
+	const Token* token = ee_pars_peek(pars);
+
+	if (ee_token_match_unop(token) != UNOP_COUNT)
+	{
+		ee_pars_advance(pars, 1);
+
+		atom = ee_alloc_expr(pars, EXPR_UNOP);
+		atom->as_unop.type = ee_token_match_unop(token);
+		atom->as_unop.expr = ee_pars_atom(pars);
+	}
+	else
+	{
+		atom = ee_pars_primary(pars);
+	}
+
+	return ee_pars_postfix(pars, atom);
 }
 
 Ast_Expr* ee_pars_expr_1(Parser* pars, Ast_Expr* lhs, Ast_Precedence min_prec)
@@ -267,7 +288,7 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 
 		if (ee_pars_match(pars, ':'))
 		{
-			stmt->as_var_decl.type_info = ee_pars_type(pars);
+			stmt->as_var_decl.type_expr = ee_pars_expr(pars);
 
 			if (ee_pars_match(pars, '='))
 				stmt->as_var_decl.val = ee_pars_expr(pars);
@@ -279,7 +300,7 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 		else if (ee_pars_match(pars, '='))
 		{
 			stmt->as_var_decl.val = ee_pars_expr(pars);
-			
+
 			ee_pars_match_or_panic(pars, ';', "Expected ';' after value expression in variable declaration");
 		}
 		else
@@ -296,12 +317,12 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 
 		stmt = ee_alloc_stmt(pars, STMT_VAR_DECL);
 		stmt->as_var_decl.ident = ident;
-		
+
 		ee_var_decl_set_flag(stmt, AST_CONST);
 
 		if (ee_pars_match(pars, ':'))
 		{
-			stmt->as_var_decl.type_info = ee_pars_type(pars);
+			stmt->as_var_decl.type_expr = ee_pars_expr(pars);
 
 			ee_pars_match_or_panic(pars, '=', "Constant value must be initialized");
 			stmt->as_var_decl.val = ee_pars_expr(pars);
@@ -311,7 +332,7 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 		else if (ee_pars_match_or_panic(pars, '=', "Constant value must be initialized"))
 		{
 			stmt->as_var_decl.val = ee_pars_expr(pars);
-			
+
 			ee_pars_match_or_panic(pars, ';', "Expected ';' after value expression in variable declaration");
 		}
 		else
@@ -322,7 +343,7 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 	case '{':
 	{
 		ee_pars_advance(pars, 1);
-		
+
 		stmt = ee_alloc_stmt(pars, STMT_BLOCK);
 		stmt->as_block.stmts = ee_array_new(32, sizeof(Ast_Stmt*), &pars->allocator);
 
@@ -337,7 +358,7 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 		ee_pars_advance(pars, 1);
 
 		EE_ASSERT(!ee_pars_check(pars, '{'), "Invalid 'if' statement, condition missed");
-		
+
 		stmt = ee_alloc_stmt(pars, STMT_IF);
 		stmt->as_if.cond = ee_pars_expr(pars);
 
@@ -390,57 +411,51 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 		ee_pars_check_or_panic(pars, TOKEN_IDENTIFIER, "Expected function name identifier after 'fn' keyword");
 
 		const Token* ident = ee_pars_eat(pars);
-		
+
 		stmt = ee_alloc_stmt(pars, STMT_FN);
 		stmt->as_func_decl.ident = ident;
-		stmt->as_func_decl.params = ee_array_new(8, sizeof(const Token*), &pars->allocator);
+		stmt->as_func_decl.param_idents = ee_array_new(8, sizeof(Token*), &pars->allocator);
+		stmt->as_func_decl.param_types = ee_array_new(8, sizeof(Ast_Expr*), &pars->allocator);
+		stmt->as_func_decl.ret_type = NULL;
 
 		ee_pars_match_or_panic(pars, '(', "Expected '(' after function name");
 
-		Ast_Type* type = ee_alloc_type(pars, TYPE_FUNC);
-		type->as_func.params = ee_array_new(8, sizeof(Ast_Type*), &pars->allocator);
-		
-		if (ee_pars_check(pars, ')'))
-		{
-			ee_pars_advance(pars, 1);
-		}
-		else
+		if (!ee_pars_check(pars, ')'))
 		{
 			do
 			{
 				ee_pars_check_or_panic(pars, TOKEN_IDENTIFIER, "Expected function parameter name identifier in parameters list");
 				const Token* param = ee_pars_eat(pars);
+				ee_array_push(&stmt->as_func_decl.param_idents, EE_RECAST_U8(param));
 
-				ee_array_push(&stmt->as_func_decl.params, EE_RECAST_U8(param));
 				ee_pars_match_or_panic(pars, ':', "Expected ':' to separate parameter name and type expression");
 
-				Ast_Type* param_type = ee_pars_type(pars);
-				ee_array_push(&type->as_func.params, EE_RECAST_U8(param_type));
+				Ast_Expr* param_type = ee_pars_expr(pars);
+				ee_array_push(&stmt->as_func_decl.param_types, EE_RECAST_U8(param_type));
 			} while (ee_pars_match(pars, ','));
-		
+
 			ee_pars_match_or_panic(pars, ')', "Expected closed ')' after function parameters list");
+		}
+		else
+		{
+			ee_pars_advance(pars, 1);
 		}
 
 		if (ee_pars_match(pars, TOKEN_ARROW))
 		{
-			Ast_Type* ret_type = ee_pars_type(pars);
-			type->as_func.ret = ret_type;
+			stmt->as_func_decl.ret_type = ee_pars_expr(pars);
 		}
-		else
-		{
-			type->as_func.ret = NULL;
-		}
-		
-		stmt->as_func_decl.type_info = type;
+
+		ee_pars_check_or_panic(pars, '{', "Expected '{' for function body");
 		stmt->as_func_decl.body = ee_pars_stmt(pars);
 	} break;
 	case TOKEN_RETURN:
 	{
 		ee_pars_advance(pars, 1);
-		
+
 		stmt = ee_alloc_stmt(pars, STMT_RETURN);
 		stmt->as_ret.val = NULL;
-		
+
 		if (!ee_pars_match(pars, ';'))
 		{
 			stmt->as_ret.val = ee_pars_expr(pars);
@@ -470,36 +485,6 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 	return stmt;
 }
 
-void ee_pars_debug_print_type(Ast_Type* root, size_t indent)
-{
-	EE_ASSERT(root != NULL, "Trying to print NULL type info root");
-
-	if (root->type == TYPE_PRIMITIVE)
-	{
-		ee_print_indent(indent);
-		ee_str_view_print(root->as_primitive.ident->scratch);
-		EE_PRINTLN("");
-	}
-	else if (root->type == TYPE_STRUCT)
-	{
-		ee_print_indent(indent);
-		EE_PRINTLN("TYPE_TUPLE: ");
-
-		Ast_Type** members = (Ast_Type**)root->as_struct.members.buffer;
-
-		for (size_t i = 0; i < ee_array_len(&root->as_struct.members); ++i)
-		{
-			ee_pars_debug_print_type(members[i], indent + 1);
-		}
-	}
-	else if (root->type == TYPE_PTR)
-	{
-		ee_print_indent(indent);
-		EE_PRINTLN("TYPE_PTR: ");
-		ee_pars_debug_print_type(root->as_ptr.to, indent);
-	}
-}
-
 void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 {
 	switch (expr->type)
@@ -521,6 +506,14 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 			EE_PRINT("LITERAL: \"");
 			ee_str_view_print(expr->as_lit.token->as_str_view);
 			EE_PRINT("\"\n");
+		}
+		else if (expr->as_lit.token->type == TOKEN_TRUE)
+		{
+			EE_PRINTLN("LITERAL: true");
+		}
+		else if (expr->as_lit.token->type == TOKEN_FALSE)
+		{
+			EE_PRINTLN("LITERAL: false");
 		}
 		else
 			EE_ASSERT(0, "Unsupported literal type for debug print (%d)", expr->as_lit.token->type);
@@ -559,7 +552,7 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 		EE_PRINTLN("");
 
 		Ast_Expr** args = (Ast_Expr**)expr->as_func_call.args.buffer;
-		
+
 		ee_print_indent(indent + 1);
 		EE_PRINTLN("FUNC_ARGS: ");
 		for (size_t i = 0; i < ee_array_len(&expr->as_func_call.args); ++i)
@@ -574,7 +567,7 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 
 		ee_print_indent(indent + 1);
 		EE_PRINTLN("ACCESS_EXPR: ");
-		
+
 		ee_pars_debug_print_expr(expr->as_access.entity, indent + 1);
 		ee_print_indent(indent + 1);
 
@@ -600,6 +593,57 @@ void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent)
 		EE_PRINTLN("INDEX_ARG: ");
 		ee_pars_debug_print_expr(expr->as_index.index, indent + 2);
 	} break;
+	case EXPR_TYPE_STRUCT:
+	{
+		ee_print_indent(indent);
+		EE_PRINTLN("TYPE_STRUCT:");
+		Token** members = (Token**)expr->as_type_struct.members.buffer;
+		Ast_Expr** types = (Ast_Expr**)expr->as_type_struct.types.buffer;
+
+		for (size_t i = 0; i < ee_array_len(&expr->as_type_struct.members); ++i)
+		{
+			ee_print_indent(indent + 1);
+			EE_PRINT("MEMBER: ");
+			ee_str_view_print(members[i]->scratch);
+			EE_PRINTLN("");
+			ee_pars_debug_print_expr(types[i], indent + 2);
+		}
+	} break;
+	case EXPR_TYPE_TUPLE:
+	{
+		ee_print_indent(indent);
+		EE_PRINTLN("TYPE_TUPLE:");
+		Ast_Expr** types = (Ast_Expr**)expr->as_type_tuple.types.buffer;
+
+		for (size_t i = 0; i < ee_array_len(&expr->as_type_tuple.types); ++i)
+		{
+			ee_pars_debug_print_expr(types[i], indent + 2);
+		}
+	} break;
+	case EXPR_TYPE_UNION:
+	{
+		ee_print_indent(indent);
+		EE_PRINTLN("TYPE_UNION:");
+		Ast_Expr** types = (Ast_Expr**)expr->as_type_union.types.buffer;
+
+		for (size_t i = 0; i < ee_array_len(&expr->as_type_union.types); ++i)
+		{
+			ee_pars_debug_print_expr(types[i], indent + 2);
+		}
+	} break;
+	case EXPR_TYPE_ARRAY:
+	{
+		ee_print_indent(indent);
+		EE_PRINTLN("TYPE_ARRAY:");
+		ee_print_indent(indent + 1);
+
+		EE_PRINTLN("SIZE:");
+		ee_pars_debug_print_expr(expr->as_type_array.size, indent + 2);
+		ee_print_indent(indent + 1);
+
+		EE_PRINTLN("TYPE:");
+		ee_pars_debug_print_expr(expr->as_type_array.type_expr, indent + 2);
+	} break;
 	default:
 	{
 		EE_ASSERT(0, "Unknown expression type (%d)", expr->type);
@@ -619,20 +663,26 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 			EE_PRINT("COSNT: ");
 		else
 			EE_PRINT("LET: ");
-		
+
 		ee_str_view_print(stmt->as_var_decl.ident->scratch);
 		EE_PRINTLN("");
-		
-		ee_print_indent(indent + 1);
 
+		if (stmt->as_var_decl.type_expr != NULL)
+		{
+			ee_print_indent(indent + 1);
+			EE_PRINTLN("LET_TYPE: ");
+			ee_pars_debug_print_expr(stmt->as_var_decl.type_expr, indent + 2);
+		}
+
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("LET_VAL: ");
 		if (stmt->as_var_decl.val != NULL)
 		{
-			ee_pars_debug_print_expr(stmt->as_var_decl.val, indent + 1);
+			ee_pars_debug_print_expr(stmt->as_var_decl.val, indent + 2);
 		}
 		else
 		{
-			ee_print_indent(indent + 1);
+			ee_print_indent(indent + 2);
 			EE_PRINTLN("VAL_UNINIT");
 		}
 	} break;
@@ -656,24 +706,24 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 		ee_print_indent(indent + 1);
 		EE_PRINTLN("ASSIGN_LVAL:");
 
-		ee_pars_debug_print_expr(stmt->as_assign.ident, indent + 1);
+		ee_pars_debug_print_expr(stmt->as_assign.ident, indent + 2);
 		ee_print_indent(indent + 1);
 
 		EE_PRINTLN("ASSIGN_RVAL: ");
 		if (stmt->as_assign.val != NULL)
 		{
-			ee_pars_debug_print_expr(stmt->as_assign.val, indent + 1);
+			ee_pars_debug_print_expr(stmt->as_assign.val, indent + 2);
 		}
 		else
 		{
-			ee_print_indent(indent + 1);
+			ee_print_indent(indent + 2);
 			EE_PRINTLN("VAL_UNINIT");
 		}
 	} break;
 	case STMT_EXPR:
 	{
 		ee_print_indent(indent);
-		
+
 		EE_PRINTLN("STMT_EXPR: ");
 		ee_pars_debug_print_expr(stmt->as_expr.expr, indent + 1);
 
@@ -683,12 +733,12 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 		ee_print_indent(indent);
 
 		EE_PRINTLN("IF:");
-		
+
 		ee_print_indent(indent + 1);
 		EE_PRINTLN("CONDITION:");
 
 		ee_pars_debug_print_expr(stmt->as_if.cond, indent + 2);
-		
+
 		ee_print_indent(indent + 1);
 		EE_PRINTLN("IF_BLOCK:");
 
@@ -715,11 +765,11 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 
 		ee_print_indent(indent + 1);
 		EE_PRINTLN("RANGE:");
-		ee_pars_debug_print_expr(stmt->as_for.range, indent + 1);
+		ee_pars_debug_print_expr(stmt->as_for.range, indent + 2);
 
 		ee_print_indent(indent + 1);
 		EE_PRINTLN("BODY:");
-		ee_pars_debug_print_stmt(stmt->as_for.body, indent + 1);
+		ee_pars_debug_print_stmt(stmt->as_for.body, indent + 2);
 	} break;
 	case STMT_WHILE:
 	{
@@ -729,7 +779,7 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 
 		ee_print_indent(indent + 1);
 		EE_PRINTLN("CONDITION: ");
-		ee_pars_debug_print_expr(stmt->as_while.cond, indent + 1);
+		ee_pars_debug_print_expr(stmt->as_while.cond, indent + 2);
 
 		ee_print_indent(indent + 1);
 		EE_PRINTLN("BODY: ");
@@ -744,31 +794,38 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 		EE_PRINTLN("");
 
 		ee_print_indent(indent + 1);
-		EE_PRINT("ARGS: ");
+		EE_PRINTLN("PARAMS: ");
+		const Token** idents = (const Token**)stmt->as_func_decl.param_idents.buffer;
+		Ast_Expr** types = (Ast_Expr**)stmt->as_func_decl.param_types.buffer;
 
-		const Token** tokens = (const Token**)stmt->as_func_decl.params.buffer;
-
-		for (size_t i = 0; i < ee_array_len(&stmt->as_func_decl.params); ++i)
+		for (size_t i = 0; i < ee_array_len(&stmt->as_func_decl.param_idents); ++i)
 		{
-			ee_str_view_print(tokens[i]->scratch);
-
-			if (i != ee_array_len(&stmt->as_func_decl.params) - 1)
-				EE_PRINT(", ");
+			ee_print_indent(indent + 2);
+			ee_str_view_print(idents[i]->scratch);
+			EE_PRINTLN(":");
+			ee_pars_debug_print_expr(types[i], indent + 3);
 		}
-		EE_PRINTLN("");
 
-		for (size_t i = 0; i < indent + 1; ++i)
+		ee_print_indent(indent + 1);
+		EE_PRINTLN("RETURN_TYPE: ");
+		if (stmt->as_func_decl.ret_type != NULL)
 		{
-			EE_PRINT("  ");
+			ee_pars_debug_print_expr(stmt->as_func_decl.ret_type, indent + 2);
 		}
+		else
+		{
+			ee_print_indent(indent + 2);
+			EE_PRINTLN("VOID (implicit)");
+		}
+
+		ee_print_indent(indent + 1);
 		EE_PRINTLN("BODY: ");
-
-		ee_pars_debug_print_stmt(stmt->as_func_decl.body, indent + 1);
+		ee_pars_debug_print_stmt(stmt->as_func_decl.body, indent + 2);
 	} break;
 	case STMT_RETURN:
 	{
 		ee_print_indent(indent);
-		
+
 		EE_PRINTLN("RETURN: ");
 
 		if (stmt->as_ret.val != NULL)

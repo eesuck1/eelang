@@ -52,54 +52,11 @@ typedef enum Type_Flag
 {
 } Type_Flag;
 
-static const char* _s_dtype_names[DTYPE_COUNT] = {
-	"u8", "u16", "u32", "u64",
-	"i8", "i16", "i32", "i64",
-	"f32", "f64", "void", "bool", "str",
-};
-
-static const Usize _s_dtype_lens_names[DTYPE_COUNT] = {
-	2, 3, 3, 3,
-	2, 3, 3, 3,
-	3, 3, 4, 4, 3,
-};
-
-static const Usize _s_dtype_sizes[DTYPE_COUNT] = {
-	1, 2, 4, 8,
-	1, 2, 4, 8,
-	4, 8, 
-	0, 1, 24
-};
-
-static const Usize _s_dtype_aligns[DTYPE_COUNT] = {
-	1, 2, 4, 8,
-	1, 2, 4, 8,
-	4, 8, 
-	0, 1, 8
-};
-
-static const Token _s_dtype_tokens[DTYPE_COUNT] = {
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "u8",   .len = 2 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "u16",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "u32",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "u64",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "i8",   .len = 2 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "i16",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "i32",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "i64",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "f32",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "f64",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "void", .len = 4 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "bool", .len = 4 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "str",  .len = 3 } },
-};
-
-static const Token _s_anonymous_token = { .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "anonymous", .len = 9 } };
-
 typedef enum Sem_Entry_Type
 {
 	SEM_ENTRY_FUNC = 0,
-	SEM_ENTRY_VAR  = 1,
+	SEM_ENTRY_VAR = 1,
+	SEM_ENTRY_TYPE = 2,
 } Sem_Entry_Type;
 
 typedef struct Sem_Scope Sem_Scope;
@@ -115,6 +72,18 @@ typedef struct Sem_Value
 		f32 as_f32; f64 as_f64;
 	};
 } Sem_Value;
+
+typedef enum Sem_Type_Kind
+{
+	SEM_TYPE_ERROR,
+	SEM_TYPE_PRIMITIVE,
+	SEM_TYPE_STRUCT,
+	SEM_TYPE_TUPLE,
+	SEM_TYPE_UNION,
+	SEM_TYPE_ARRAY,
+	SEM_TYPE_PTR,
+	SEM_TYPE_FUNC,
+} Sem_Type_Kind;
 
 typedef struct Sem_Type_Primitive
 {
@@ -132,6 +101,22 @@ typedef struct Sem_Type_Struct
 {
 	Array members;
 } Sem_Type_Struct;
+
+typedef struct Sem_Type_Tuple
+{
+	Array types;
+} Sem_Type_Tuple;
+
+typedef struct Sem_Type_Union
+{
+	Array types;
+} Sem_Type_Union;
+
+typedef struct Sem_Type_Array
+{
+	struct Sem_Type* elem_type;
+	u64 count;
+} Sem_Type_Array;
 
 typedef struct Sem_Type_Ptr
 {
@@ -152,8 +137,8 @@ typedef struct Sem_Type_Error
 typedef struct Sem_Type
 {
 	const Token* token;
-	
-	Ast_Type_Expr_Type type;
+
+	Sem_Type_Kind type;
 	Usize size;
 	Usize align;
 	u64 flags;
@@ -162,6 +147,9 @@ typedef struct Sem_Type
 	{
 		Sem_Type_Primitive as_primitive;
 		Sem_Type_Struct    as_struct;
+		Sem_Type_Tuple     as_tuple;
+		Sem_Type_Union     as_union;
+		Sem_Type_Array     as_array;
 		Sem_Type_Ptr       as_ptr;
 		Sem_Type_Func      as_func;
 		Sem_Type_Error     as_error;
@@ -192,11 +180,9 @@ typedef struct Sem_Analyzer
 	Sem_Scope* global_scope;
 	Allocator allocator;
 	Logger log;
-	Sem_Type builtin_types[DTYPE_COUNT];
 } Sem_Analyzer;
 
 void ee_sem_check_or_panic(Sem_Analyzer* sem, Bool cond, const Token* token, const char* message, ...);
-
 const Token* ee_expr_get_token(const Ast_Expr* expr);
 
 Sem_Entry* ee_alloc_entry(Sem_Analyzer* sem, Sem_Entry_Type type, const Token* ident, Ast_Stmt* decl_stmt, Sem_Type* type_info, Sem_Value val);
@@ -208,49 +194,157 @@ void ee_scope_set_type(Sem_Scope* scope, const Token* ident, Sem_Type* entry);
 
 Sem_Type* ee_sem_create_error_type(Sem_Analyzer* sem, const Token* token);
 Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* scope);
-Sem_Type* ee_sem_match_builtin(Sem_Analyzer* sem, const Token* token);
-Sem_Type* ee_sem_alloc_type(Sem_Analyzer* sem, Ast_Type_Expr_Type type);
-Sem_Type* ee_sem_resolve_type(Sem_Analyzer* sem, Ast_Type* ast_type, Sem_Scope* scope);
+Sem_Type* ee_sem_alloc_type(Sem_Analyzer* sem, Sem_Type_Kind type);
+Sem_Type* ee_sem_resolve_type_expr(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* scope);
+
 void ee_sem_resolve_func_headers(Sem_Analyzer* sem, Ast_Stmt* block, Sem_Scope* scope);
 void ee_sem_resolve_scopes(Sem_Analyzer* sem);
 void ee_sem_resolve_stmt(Sem_Analyzer* sem, Ast_Stmt* stmt, Sem_Scope* parent, Sem_Type* func_ret_type);
+
 Sem_Analyzer ee_sem_new(Ast_Module* mod, Logger log, const Allocator* allocator);
 void ee_sem_debug_print_scope(Sem_Scope* sem, size_t indent);
 void ee_sem_debug_print(Sem_Analyzer* sem);
 
 EE_INLINE Bool ee_type_is_int(Sem_Type* type)
 {
-	return type->type == TYPE_PRIMITIVE && type->as_primitive.dtype >= DTYPE_I8 && type->as_primitive.dtype <= DTYPE_I64;
+	return type->type == SEM_TYPE_PRIMITIVE && type->as_primitive.dtype >= DTYPE_I8 && type->as_primitive.dtype <= DTYPE_I64;
 }
 
 EE_INLINE Bool ee_type_is_uint(const Sem_Type* type)
 {
-	return type->type == TYPE_PRIMITIVE && type->as_primitive.dtype >= DTYPE_U8 && type->as_primitive.dtype <= DTYPE_U64;
+	return type->type == SEM_TYPE_PRIMITIVE && type->as_primitive.dtype >= DTYPE_U8 && type->as_primitive.dtype <= DTYPE_U64;
 }
 
 EE_INLINE Bool ee_type_is_float(const Sem_Type* type)
 {
-	return type->type == TYPE_PRIMITIVE && type->as_primitive.dtype >= DTYPE_F32 && type->as_primitive.dtype <= DTYPE_F64;
+	return type->type == SEM_TYPE_PRIMITIVE && type->as_primitive.dtype >= DTYPE_F32 && type->as_primitive.dtype <= DTYPE_F64;
 }
 
 EE_INLINE Bool ee_type_is_bool(const Sem_Type* type)
 {
-	return type->type == TYPE_PRIMITIVE && type->as_primitive.dtype == DTYPE_BOOL;
+	return type->type == SEM_TYPE_PRIMITIVE && type->as_primitive.dtype == DTYPE_BOOL;
 }
 
 EE_INLINE Bool ee_type_is_void(const Sem_Type* type)
 {
-	return type->type == TYPE_PRIMITIVE && type->as_primitive.dtype == DTYPE_VOID;
+	return type->type == SEM_TYPE_PRIMITIVE && type->as_primitive.dtype == DTYPE_VOID;
 }
 
 EE_INLINE Bool ee_type_is_str(const Sem_Type* type)
 {
-	return type->type == TYPE_PRIMITIVE && type->as_primitive.dtype == DTYPE_STR;
+	return type->type == SEM_TYPE_PRIMITIVE && type->as_primitive.dtype == DTYPE_STR;
 }
 
+// TODO(eesuck): think about complex dtypes match
 EE_INLINE Bool ee_types_match(const Sem_Type* a, const Sem_Type* b)
 {
-	return (ee_type_is_int(a) && ee_type_is_int(b)) || (ee_type_is_uint(a) && ee_type_is_uint(b)) || (ee_type_is_float(a) && ee_type_is_float(b));
+	if (a == b)
+		return EE_TRUE;
+
+	if (a->type != b->type)
+		return EE_FALSE;
+
+	switch (a->type)
+	{
+	case SEM_TYPE_PRIMITIVE:
+	{
+		if (ee_type_is_int(a) && ee_type_is_int(b)) return EE_TRUE;
+		if (ee_type_is_uint(a) && ee_type_is_uint(b)) return EE_TRUE;
+		if (ee_type_is_float(a) && ee_type_is_float(b)) return EE_TRUE;
+		if (ee_type_is_bool(a) && ee_type_is_bool(b)) return EE_TRUE;
+		if (ee_type_is_void(a) && ee_type_is_void(b)) return EE_TRUE;
+		if (ee_type_is_str(a) && ee_type_is_str(b)) return EE_TRUE;
+
+		return EE_FALSE;
+	}
+
+	case SEM_TYPE_PTR:
+	{
+		return ee_types_match(a->as_ptr.to, b->as_ptr.to);
+	}
+
+	case SEM_TYPE_ARRAY:
+	{
+		if (a->as_array.count != b->as_array.count)
+			return EE_FALSE;
+		return ee_types_match(a->as_array.elem_type, b->as_array.elem_type);
+	}
+
+	case SEM_TYPE_TUPLE:
+	{
+		if (ee_array_len(&a->as_tuple.types) != ee_array_len(&b->as_tuple.types))
+			return EE_FALSE;
+
+		Sem_Type** a_types = (Sem_Type**)a->as_tuple.types.buffer;
+		Sem_Type** b_types = (Sem_Type**)b->as_tuple.types.buffer;
+
+		for (size_t i = 0; i < ee_array_len(&a->as_tuple.types); ++i)
+		{
+			if (!ee_types_match(a_types[i], b_types[i]))
+				return EE_FALSE;
+		}
+		return EE_TRUE;
+	}
+
+	case SEM_TYPE_STRUCT:
+	{
+		if (ee_array_len(&a->as_struct.members) != ee_array_len(&b->as_struct.members))
+			return EE_FALSE;
+
+		Sem_Struct_Member* a_members = (Sem_Struct_Member*)a->as_struct.members.buffer;
+		Sem_Struct_Member* b_members = (Sem_Struct_Member*)b->as_struct.members.buffer;
+
+		for (size_t i = 0; i < ee_array_len(&a->as_struct.members); ++i)
+		{
+			if (!ee_token_scratch_equal(a_members[i].ident, b_members[i].ident))
+				return EE_FALSE;
+
+			if (!ee_types_match(a_members[i].type, b_members[i].type))
+				return EE_FALSE;
+		}
+		return EE_TRUE;
+	}
+
+	case SEM_TYPE_UNION:
+	{
+		if (ee_array_len(&a->as_union.types) != ee_array_len(&b->as_union.types))
+			return EE_FALSE;
+
+		Sem_Type** a_types = (Sem_Type**)a->as_union.types.buffer;
+		Sem_Type** b_types = (Sem_Type**)b->as_union.types.buffer;
+
+		for (size_t i = 0; i < ee_array_len(&a->as_union.types); ++i)
+		{
+			if (!ee_types_match(a_types[i], b_types[i]))
+				return EE_FALSE;
+		}
+		return EE_TRUE;
+	}
+
+	case SEM_TYPE_FUNC:
+	{
+		if (!ee_types_match(a->as_func.ret, b->as_func.ret))
+			return EE_FALSE;
+
+		if (ee_array_len(&a->as_func.params) != ee_array_len(&b->as_func.params))
+			return EE_FALSE;
+
+		Sem_Type** a_params = (Sem_Type**)a->as_func.params.buffer;
+		Sem_Type** b_params = (Sem_Type**)b->as_func.params.buffer;
+
+		for (size_t i = 0; i < ee_array_len(&a->as_func.params); ++i)
+		{
+			if (!ee_types_match(a_params[i], b_params[i]))
+				return EE_FALSE;
+		}
+		return EE_TRUE;
+	}
+
+	case SEM_TYPE_ERROR:
+		return EE_FALSE;
+	}
+
+	return EE_FALSE;
 }
 
 EE_INLINE Bool ee_sem_type_can_cast(Sem_Type* val, Sem_Type* type)
@@ -258,7 +352,7 @@ EE_INLINE Bool ee_sem_type_can_cast(Sem_Type* val, Sem_Type* type)
 	if (val->type != type->type)
 		return EE_FALSE;
 
-	EE_ASSERT(val->type == TYPE_PRIMITIVE && type->type == TYPE_PRIMITIVE, "complex type conversion are not done yet");
+	EE_ASSERT(val->type == SEM_TYPE_PRIMITIVE && type->type == SEM_TYPE_PRIMITIVE, "complex type conversion are not done yet");
 
 	if ((ee_type_is_int(val) || ee_type_is_uint(val) || ee_type_is_bool(val) || ee_type_is_float(val)) &&
 		(ee_type_is_int(type) || ee_type_is_uint(type) || ee_type_is_bool(type) || ee_type_is_float(type)))
@@ -266,6 +360,5 @@ EE_INLINE Bool ee_sem_type_can_cast(Sem_Type* val, Sem_Type* type)
 
 	return EE_FALSE;
 }
-
 
 #endif // EE_SEMANTIC_H

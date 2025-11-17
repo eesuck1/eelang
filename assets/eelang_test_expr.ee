@@ -1,17 +1,51 @@
-fn add(a: i32, b: i32) -> i32
+const GLOBAL_CONST: i32 = 100;
+
+fn test_pointers(ptr: &i32) -> i32
 {
-	return a + b;
+	let a = *ptr;
+	*ptr = a + 10;
+	return *ptr;
 }
+
+fn test_loops_and_scopes(start: i32) -> i32
+{
+	let total = start;
 	
+	while total < 10
+	{
+		total = total + 1;
+
+		if total == 5
+		{
+			let shadow = 100;
+			total = total + shadow;
+		}
+	}
+
+	for i in total..total + 3
+	{
+		let c = i * 2;
+		total = total + c;
+	}
+	
+	return total;
+}
+
 fn main() -> i32
 {
 	let a: i32 = -100;
-	let b: i32 = 2;
+	let b: bool = (a < GLOBAL_CONST) && true;
 
-	let c = add(a, b);
-	let d = &c;
+	if b
+	{
+		a = test_loops_and_scopes(a);
+	}
+	else
+	{
+		a = 404;
+	}
 
-	c = a + b;
-
-	return 0;
+	let final_val = test_pointers(&a);
+	
+	return final_val;
 }
