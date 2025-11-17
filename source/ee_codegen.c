@@ -1,5 +1,27 @@
 #include "ee_codegen.h"
 
+static const char _s_include_prol[] =
+	"#include <stdint.h>\n"
+	"#include <stdbool.h>\n"
+	"#include <stddef.h>\n\n";
+
+static const size_t _s_include_prol_len = sizeof(_s_include_prol) - 1;
+
+static const char _s_typedef_prol[] =
+	"typedef uint8_t     u8;\n"
+	"typedef uint16_t    u16;\n"
+	"typedef uint32_t    u32;\n"
+	"typedef uint64_t    u64;\n"
+	"typedef int8_t      i8;\n"
+	"typedef int16_t     i16;\n"
+	"typedef int32_t     i32;\n"
+	"typedef int64_t     i64;\n"
+	"typedef float       f32;\n"
+	"typedef double      f64;\n"
+	"typedef long double f80;\n\n";
+
+static const size_t _s_typedef_prol_len = sizeof(_s_typedef_prol) - 1;
+
 static void ee_gen_printf(Codegen* gen, const char* fmt, ...)
 {
 	va_list args;
@@ -390,7 +412,6 @@ void ee_gen_stmt(Codegen* gen, Ast_Stmt* stmt, Sem_Scope* scope, size_t indent)
 		{
 			ee_gen_stmt(gen, stmts[i], block_scope, indent + not_global);
 		}
-		
 
 		if (not_global)
 		{
@@ -404,19 +425,13 @@ void ee_gen_stmt(Codegen* gen, Ast_Stmt* stmt, Sem_Scope* scope, size_t indent)
 		ee_gen_expr(gen, stmt->as_if.cond);
 		ee_gen_printf(gen, ")\n");
 
-		EE_ASSERT(scope->top < ee_array_len(&scope->children), "Codegen: Scope mismatch for 'if' block");
-		Sem_Scope* if_scope = ((Sem_Scope**)scope->children.buffer)[scope->top++];
-
-		ee_gen_stmt(gen, stmt->as_if.if_block, if_scope, indent);
+		ee_gen_stmt(gen, stmt->as_if.if_block, scope, indent);
 
 		if (stmt->as_if.else_block)
 		{
-			EE_ASSERT(scope->top < ee_array_len(&scope->children), "Codegen: Scope mismatch for 'else' block");
-			Sem_Scope* else_scope = ((Sem_Scope**)scope->children.buffer)[scope->top++];
-
 			ee_gen_print_indent(gen, indent);
 			ee_gen_printf(gen, "else\n");
-			ee_gen_stmt(gen, stmt->as_if.else_block, else_scope, indent);
+			ee_gen_stmt(gen, stmt->as_if.else_block, scope, indent);
 		}
 	} break;
 	case STMT_FOR:
@@ -425,30 +440,32 @@ void ee_gen_stmt(Codegen* gen, Ast_Stmt* stmt, Sem_Scope* scope, size_t indent)
 
 		EE_ASSERT(scope->top < ee_array_len(&scope->children), "Codegen: Scope mismatch for 'for' block");
 		Sem_Scope* for_scope = ((Sem_Scope**)scope->children.buffer)[scope->top++];
+		Sem_Entry* it_entry = ee_scope_lookup_entry(for_scope, stmt->as_for.it);
 
-		ee_gen_printf(gen, "for (i64 ");
-		ee_gen_print_token(gen, stmt->as_for.it);
+		ee_gen_printf(gen, "for (");
+		ee_gen_type(gen, it_entry->type_info);
+		ee_gen_printf(gen, " ");
+		ee_gen_print_token(gen, it_entry->ident);
 		ee_gen_printf(gen, " = ");
 		ee_gen_expr(gen, stmt->as_for.range->as_binop.left);
 		ee_gen_printf(gen, "; ");
-		ee_gen_print_token(gen, stmt->as_for.it);
+		ee_gen_print_token(gen, it_entry->ident);
 		ee_gen_printf(gen, " < ");
 		ee_gen_expr(gen, stmt->as_for.range->as_binop.right);
 		ee_gen_printf(gen, "; ");
-		ee_gen_print_token(gen, stmt->as_for.it);
+		ee_gen_print_token(gen, it_entry->ident);
 		ee_gen_printf(gen, "++)\n");
 
 		ee_gen_stmt(gen, stmt->as_for.body, for_scope, indent);
 	} break;
 	case STMT_WHILE:
 	{
-		EE_ASSERT(scope->top < ee_array_len(&scope->children), "Codegen: Scope mismatch for 'while' block");
-		Sem_Scope* while_scope = ((Sem_Scope**)scope->children.buffer)[scope->top++];
+		// TODO(eesuck): in future maybe while block will create a scope
 
 		ee_gen_printf(gen, "while (");
 		ee_gen_expr(gen, stmt->as_while.cond);
 		ee_gen_printf(gen, ")\n");
-		ee_gen_stmt(gen, stmt->as_while.body, while_scope, indent);
+		ee_gen_stmt(gen, stmt->as_while.body, scope, indent);
 	} break;
 	case STMT_EXPR:
 	{

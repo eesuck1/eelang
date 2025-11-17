@@ -4,20 +4,23 @@ static const char* _s_dtype_names[DTYPE_COUNT] = {
 	"u8", "u16", "u32", "u64",
 	"i8", "i16", "i32", "i64",
 	"f32", "f64", "void", "bool", "str",
+	"type",
 };
 
 static const Usize _s_dtype_sizes[DTYPE_COUNT] = {
 	1, 2, 4, 8,
 	1, 2, 4, 8,
 	4, 8,
-	0, 1, 24
+	0, 1, 24,
+	/* TODO(eesuck): type structure size */ 0,
 };
 
 static const Usize _s_dtype_aligns[DTYPE_COUNT] = {
 	1, 2, 4, 8,
 	1, 2, 4, 8,
 	4, 8,
-	0, 1, 8
+	0, 1, 8,
+	/* TODO(eesuck): type structure align */ 0,
 };
 
 static const Token _s_dtype_tokens[DTYPE_COUNT] = {
@@ -34,6 +37,7 @@ static const Token _s_dtype_tokens[DTYPE_COUNT] = {
 	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "void", .len = 4 } },
 	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "bool", .len = 4 } },
 	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "str",  .len = 3 } },
+	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "type", .len = 4 } },
 };
 
 static const Token _s_anonymous_token = { .type = TOKEN_IDENTIFIER, .scratch = {.buffer = "anonymous", .len = 9 } };
@@ -401,10 +405,7 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 	case EXPR_TYPE_UNION:
 	case EXPR_TYPE_ARRAY:
 	{
-		const Token* expr_token = ee_expr_get_token(expr);
-		ee_log_error_token(&sem->log, expr_token, "Unexpected type expression, expected value");
-
-		return ee_sem_create_error_type(sem, expr_token);
+		return ee_scope_lookup_type(sem, scope, &_s_dtype_tokens[DTYPE_TYPE]);
 	}
 
 	default: EE_ASSERT(0, "Unknown expression type (%d)", expr->type);

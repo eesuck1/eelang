@@ -2,16 +2,16 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-typedef uint8_t    u8;
-typedef uint16_t   u16;
-typedef uint32_t   u32;
-typedef uint64_t   u64;
-typedef int8_t     i8;
-typedef int16_t    i16;
-typedef int32_t    i32;
-typedef int64_t    i64;
-typedef float      f32;
-typedef double     f64;
+typedef uint8_t     u8;
+typedef uint16_t    u16;
+typedef uint32_t    u32;
+typedef uint64_t    u64;
+typedef int8_t      i8;
+typedef int16_t     i16;
+typedef int32_t     i32;
+typedef int64_t     i64;
+typedef float       f32;
+typedef double      f64;
 typedef long double f80;
 
 i32 GLOBAL_CONST = 100;
@@ -29,3 +29,30 @@ i32 test_loops_and_scopes(i32 start)
     {
         total = (total + 1);
         if ((total == 5))
+        {
+            i64 shadow = 100;
+        }
+    }
+    for (i64 i = total; i < (total + 3); i++)
+    {
+        i64 c = (i * 2);
+    }
+    return total;
+}
+
+i32 main()
+{
+    i32 a = (-(100));
+    bool b = ((a < GLOBAL_CONST) && true);
+    if (b)
+    {
+        a = test_loops_and_scopes(a);
+    }
+    else
+    {
+        a = 404;
+    }
+    i32 final_val = test_pointers((&(a)));
+    return final_val;
+}
+

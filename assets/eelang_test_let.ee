@@ -1,4 +1,0 @@
-const GLOBAL_CONST: i32 = 100;
-
-let a: i32 = -100;
-let b: bool = (a < GLOBAL_CONST) && true;

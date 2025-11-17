@@ -18,14 +18,12 @@ fn test_loops_and_scopes(start: i32) -> i32
 		if total == 5
 		{
 			let shadow = 100;
-			total = total + shadow;
 		}
 	}
 
 	for i in total..total + 3
 	{
 		let c = i * 2;
-		total = total + c;
 	}
 	
 	return total;

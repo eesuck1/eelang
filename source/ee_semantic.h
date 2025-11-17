@@ -45,6 +45,7 @@ typedef enum Data_Type
 	DTYPE_VOID = 10,
 	DTYPE_BOOL = 11,
 	DTYPE_STR  = 12,
+	DTYPE_TYPE = 13,
 	DTYPE_COUNT,
 } Data_Type;
 
