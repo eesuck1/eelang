@@ -1,24 +1,24 @@
 #include "ee_codegen.h"
 
 static const char _s_include_prol[] =
-	"#include <stdint.h>\n"
-	"#include <stdbool.h>\n"
-	"#include <stddef.h>\n\n";
+"#include <stdint.h>\n"
+"#include <stdbool.h>\n"
+"#include <stddef.h>\n\n";
 
 static const size_t _s_include_prol_len = sizeof(_s_include_prol) - 1;
 
 static const char _s_typedef_prol[] =
-	"typedef uint8_t     u8;\n"
-	"typedef uint16_t    u16;\n"
-	"typedef uint32_t    u32;\n"
-	"typedef uint64_t    u64;\n"
-	"typedef int8_t      i8;\n"
-	"typedef int16_t     i16;\n"
-	"typedef int32_t     i32;\n"
-	"typedef int64_t     i64;\n"
-	"typedef float       f32;\n"
-	"typedef double      f64;\n"
-	"typedef long double f80;\n\n";
+"typedef uint8_t     u8;\n"
+"typedef uint16_t    u16;\n"
+"typedef uint32_t    u32;\n"
+"typedef uint64_t    u64;\n"
+"typedef int8_t      i8;\n"
+"typedef int16_t     i16;\n"
+"typedef int32_t     i32;\n"
+"typedef int64_t     i64;\n"
+"typedef float       f32;\n"
+"typedef double      f64;\n"
+"typedef long double f80;\n\n";
 
 static const size_t _s_typedef_prol_len = sizeof(_s_typedef_prol) - 1;
 
@@ -110,11 +110,11 @@ static const char* ee_gen_unop_to_c(Ast_Unop_Type type)
 	}
 }
 
-Codegen ee_gen_new(const Sem_Scope* scope, const Ast_Module* mod, const char* file_out)
+Codegen ee_gen_new(Sem_Scope* root_scope, const Ast_Module* mod, const char* file_out)
 {
 	Codegen gen = { 0 };
 
-	gen.scope = (Sem_Scope*)scope;
+	gen.scope = root_scope;
 	gen.mod = (Ast_Module*)mod;
 	gen.file_out = file_out;
 
@@ -136,7 +136,7 @@ void ee_gen_prologue(Codegen* gen)
 
 void ee_gen_run(Codegen* gen)
 {
-	if (gen->handle == NULL) 
+	if (gen->handle == NULL)
 		return;
 
 	ee_gen_prologue(gen);
@@ -160,6 +160,11 @@ void ee_gen_type(Codegen* gen, Sem_Type* type)
 	} break;
 	case SEM_TYPE_PRIMITIVE:
 	{
+		if (type->as_primitive.dtype == DTYPE_TYPE)
+		{
+			ee_gen_printf(gen, "void* /* TYPE */");
+			break;
+		}
 		ee_gen_printf(gen, "%s", _s_dtype_names[type->as_primitive.dtype]);
 	} break;
 	case SEM_TYPE_PTR:
@@ -173,17 +178,21 @@ void ee_gen_type(Codegen* gen, Sem_Type* type)
 	} break;
 	case SEM_TYPE_STRUCT:
 	{
-		ee_gen_printf(gen, "struct { ");
-
-		Sem_Struct_Member* members = (Sem_Struct_Member*)type->as_struct.members.buffer;
-
-		for (size_t i = 0; i < ee_array_len(&type->as_struct.members); ++i)
+		if (type->token && type->token->scratch.len > 0)
 		{
-			ee_gen_type(gen, members[i].type);
-			ee_gen_printf(gen, " %.*s; ", (int)members[i].ident->scratch.len, members[i].ident->scratch.buffer);
+			ee_gen_printf(gen, "struct %.*s", (int)type->token->scratch.len, type->token->scratch.buffer);
 		}
-
-		ee_gen_printf(gen, "}");
+		else
+		{
+			ee_gen_printf(gen, "struct { ");
+			Sem_Struct_Member* members = (Sem_Struct_Member*)type->as_struct.members.buffer;
+			for (size_t i = 0; i < ee_array_len(&type->as_struct.members); ++i)
+			{
+				ee_gen_type(gen, members[i].type);
+				ee_gen_printf(gen, " %.*s; ", (int)members[i].ident->scratch.len, members[i].ident->scratch.buffer);
+			}
+			ee_gen_printf(gen, "}");
+		}
 	} break;
 	case SEM_TYPE_TUPLE:
 	{
@@ -258,7 +267,8 @@ void ee_gen_expr(Codegen* gen, Ast_Expr* expr)
 		if (expr->as_binop.type == BINOP_CAST)
 		{
 			ee_gen_printf(gen, "(");
-			ee_gen_expr(gen, expr->as_binop.right);
+			EE_ASSERT(expr->resolved_type != NULL, "Cast expression has no resolved type");
+			ee_gen_type(gen, expr->resolved_type);
 			ee_gen_printf(gen, ")(");
 			ee_gen_expr(gen, expr->as_binop.left);
 			ee_gen_printf(gen, ")");
@@ -284,15 +294,15 @@ void ee_gen_expr(Codegen* gen, Ast_Expr* expr)
 		ee_gen_printf(gen, "(");
 
 		Ast_Expr** args = (Ast_Expr**)expr->as_func_call.args.buffer;
-		
+
 		for (size_t i = 0; i < ee_array_len(&expr->as_func_call.args); ++i)
 		{
 			ee_gen_expr(gen, args[i]);
-		
+
 			if (i < ee_array_len(&expr->as_func_call.args) - 1)
 				ee_gen_printf(gen, ", ");
 		}
-		
+
 		ee_gen_printf(gen, ")");
 	} break;
 
@@ -341,6 +351,11 @@ void ee_gen_stmt(Codegen* gen, Ast_Stmt* stmt, Sem_Scope* scope, size_t indent)
 		EE_ASSERT(entry != NULL, "Codegen: Undeclared variable? Semantic analysis failed.");
 		Sem_Type* type = entry->type_info;
 
+		if (type->type == SEM_TYPE_PRIMITIVE && type->as_primitive.dtype == DTYPE_TYPE)
+		{
+			return;
+		}
+
 		if (ee_var_decl_has_flag(stmt, AST_CONST))
 		{
 			ee_gen_printf(gen, "const ");
@@ -369,14 +384,29 @@ void ee_gen_stmt(Codegen* gen, Ast_Stmt* stmt, Sem_Scope* scope, size_t indent)
 		EE_ASSERT(entry != NULL && entry->type_info->type == SEM_TYPE_FUNC, "Codegen: Function semantic info not found.");
 		Sem_Type* func_type = entry->type_info;
 
-		ee_gen_type(gen, func_type->as_func.ret);
-		ee_gen_printf(gen, " ");
-		ee_gen_print_token(gen, stmt->as_func_decl.ident);
-		ee_gen_printf(gen, "(");
+		if (func_type->as_func.ret->type == SEM_TYPE_PRIMITIVE &&
+			func_type->as_func.ret->as_primitive.dtype == DTYPE_TYPE)
+		{
+			return;
+		}
 
 		const Token** param_idents = (const Token**)stmt->as_func_decl.param_idents.buffer;
 		Sem_Type** param_types = (Sem_Type**)func_type->as_func.params.buffer;
 		size_t param_count = ee_array_len(&func_type->as_func.params);
+
+		for (size_t i = 0; i < param_count; ++i)
+		{
+			if (param_types[i]->type == SEM_TYPE_PRIMITIVE &&
+				param_types[i]->as_primitive.dtype == DTYPE_TYPE)
+			{
+				return;
+			}
+		}
+
+		ee_gen_type(gen, func_type->as_func.ret);
+		ee_gen_printf(gen, " ");
+		ee_gen_print_token(gen, stmt->as_func_decl.ident);
+		ee_gen_printf(gen, "(");
 
 		for (size_t i = 0; i < param_count; ++i)
 		{
@@ -460,8 +490,6 @@ void ee_gen_stmt(Codegen* gen, Ast_Stmt* stmt, Sem_Scope* scope, size_t indent)
 	} break;
 	case STMT_WHILE:
 	{
-		// TODO(eesuck): in future maybe while block will create a scope
-
 		ee_gen_printf(gen, "while (");
 		ee_gen_expr(gen, stmt->as_while.cond);
 		ee_gen_printf(gen, ")\n");

@@ -42,17 +42,5 @@ i32 test_loops_and_scopes(i32 start)
 
 i32 main()
 {
-    i32 a = (-(100));
-    bool b = ((a < GLOBAL_CONST) && true);
-    if (b)
-    {
-        a = test_loops_and_scopes(a);
-    }
-    else
-    {
-        a = 404;
-    }
-    i32 final_val = test_pointers((&(a)));
-    return final_val;
-}
-
+    void /* ERROR */ a = (-(100));
+    

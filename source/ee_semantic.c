@@ -12,7 +12,7 @@ static const Usize _s_dtype_sizes[DTYPE_COUNT] = {
 	1, 2, 4, 8,
 	4, 8,
 	0, 1, 24,
-	/* TODO(eesuck): type structure size */ 0,
+	0,
 };
 
 static const Usize _s_dtype_aligns[DTYPE_COUNT] = {
@@ -20,28 +20,27 @@ static const Usize _s_dtype_aligns[DTYPE_COUNT] = {
 	1, 2, 4, 8,
 	4, 8,
 	0, 1, 8,
-	/* TODO(eesuck): type structure align */ 0,
+	0,
 };
 
 static const Token _s_dtype_tokens[DTYPE_COUNT] = {
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "u8",   .len = 2 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "u16",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "u32",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "u64",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "i8",   .len = 2 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "i16",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "i32",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "i64",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "f32",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "f64",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "void", .len = 4 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "bool", .len = 4 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "str",  .len = 3 } },
-	{ .type = TOKEN_IDENTIFIER, .scratch = { .buffer = "type", .len = 4 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "u8",   .len = 2 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "u16",  .len = 3 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "u32",  .len = 3 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "u64",  .len = 3 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "i8",   .len = 2 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "i16",  .len = 3 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "i32",  .len = 3 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "i64",  .len = 3 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "f32",  .len = 3 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "f64",  .len = 3 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "void", .len = 4 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "bool", .len = 4 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "str",  .len = 3 } },
+	{.type = TOKEN_IDENTIFIER, .scratch = {.buffer = "type", .len = 4 } },
 };
 
 static const Token _s_anonymous_token = { .type = TOKEN_IDENTIFIER, .scratch = {.buffer = "anonymous", .len = 9 } };
-
 
 void ee_sem_resolve_scopes(Sem_Analyzer* sem)
 {
@@ -78,29 +77,38 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 		if (entry != NULL)
 		{
 			if (entry->type == SEM_ENTRY_VAR || entry->type == SEM_ENTRY_FUNC)
+			{
+				expr->resolved_type = entry->type_info;
 				return entry->type_info;
+			}
 		}
 
 		ee_log_error_token(&sem->log, expr->as_ident.token, "Use of undeclared variable or value");
 
-		return ee_sem_create_error_type(sem, expr->as_ident.token);
+		expr->resolved_type = ee_sem_create_error_type(sem, expr->as_ident.token);
+		return expr->resolved_type;
 	} break;
 	case EXPR_LIT:
 	{
 		const Token* token = expr->as_lit.token;
+		Sem_Type* type = NULL;
 
 		switch (token->type)
 		{
-		case TOKEN_LIT_INT: return ee_scope_lookup_type(sem, scope, &_s_dtype_tokens[DTYPE_I64]);
-		case TOKEN_LIT_FLOAT: return ee_scope_lookup_type(sem, scope, &_s_dtype_tokens[DTYPE_F64]);
-		case TOKEN_LIT_STR: return ee_scope_lookup_type(sem, scope, &_s_dtype_tokens[DTYPE_STR]);
-		case TOKEN_TRUE: return ee_scope_lookup_type(sem, scope, &_s_dtype_tokens[DTYPE_BOOL]);
-		case TOKEN_FALSE: return ee_scope_lookup_type(sem, scope, &_s_dtype_tokens[DTYPE_BOOL]);
+		case TOKEN_LIT_INT: type = ee_scope_lookup_entry(scope, &_s_dtype_tokens[DTYPE_I64])->val.as_type; break;
+		case TOKEN_LIT_FLOAT: type = ee_scope_lookup_entry(scope, &_s_dtype_tokens[DTYPE_F64])->val.as_type; break;
+		case TOKEN_LIT_STR: type = ee_scope_lookup_entry(scope, &_s_dtype_tokens[DTYPE_STR])->val.as_type; break;
+		case TOKEN_TRUE: type = ee_scope_lookup_entry(scope, &_s_dtype_tokens[DTYPE_BOOL])->val.as_type; break;
+		case TOKEN_FALSE: type = ee_scope_lookup_entry(scope, &_s_dtype_tokens[DTYPE_BOOL])->val.as_type; break;
+		default:
+		{
+			ee_log_error_token(&sem->log, token, "Unknown literal type");
+			type = ee_sem_create_error_type(sem, token);
+		} break;
 		}
 
-		ee_log_error_token(&sem->log, token, "Unknown literal type");
-
-		return ee_sem_create_error_type(sem, token);
+		expr->resolved_type = type;
+		return type;
 	} break;
 	case EXPR_BINOP:
 	{
@@ -115,31 +123,49 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 			{
 				const Token* expr_token = ee_expr_get_token(right_expr);
 				ee_log_error_token(&sem->log, expr_token, "Unknown type after 'as'");
-
-				return ee_sem_create_error_type(sem, expr_token);
+				expr->resolved_type = ee_sem_create_error_type(sem, expr_token);
+				return expr->resolved_type;
 			}
 
 			if (right_type->type == SEM_TYPE_ERROR)
+			{
+				expr->resolved_type = right_type;
 				return right_type;
+			}
+
+			if (left->type == SEM_TYPE_ERROR)
+			{
+				expr->resolved_type = left;
+				return left;
+			}
 
 			if (!ee_sem_type_can_cast(left, right_type))
 			{
 				const Token* expr_token = ee_expr_get_token(expr);
 				ee_log_error_token(&sem->log, expr_token, "Invalid cast");
-
-				return ee_sem_create_error_type(sem, expr_token);
+				expr->resolved_type = ee_sem_create_error_type(sem, expr_token);
+				return expr->resolved_type;
 			}
 
+			expr->resolved_type = right_type;
 			return right_type;
 		}
 
 		Sem_Type* right = ee_sem_get_expr_type(sem, expr->as_binop.right, scope);
 
 		if (left->type == SEM_TYPE_ERROR)
+		{
+			expr->resolved_type = left;
 			return left;
-		
+		}
+
 		if (right->type == SEM_TYPE_ERROR)
+		{
+			expr->resolved_type = right;
 			return right;
+		}
+
+		Sem_Type* result_type = NULL;
 
 		switch (expr->as_binop.type)
 		{
@@ -148,24 +174,21 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 		case BINOP_MUL:
 		case BINOP_DIV:
 		{
-			if (!ee_types_match(left, right))
+			if (!ee_sem_is_implicitly_convertible_to(left, right) && !ee_sem_is_implicitly_convertible_to(right, left))
 			{
 				const Token* expr_token = ee_expr_get_token(expr);
 				ee_log_error_token(&sem->log, expr_token, "Invalid operands types for binary operation");
-
-				return ee_sem_create_error_type(sem, expr_token);
+				result_type = ee_sem_create_error_type(sem, expr_token);
 			}
-			if (left->type != SEM_TYPE_PRIMITIVE)
+			else if (left->type != SEM_TYPE_PRIMITIVE)
 			{
 				ee_log_error_token(&sem->log, ee_expr_get_token(expr), "Binary operations only support primitive types");
-				
-				return ee_sem_create_error_type(sem, ee_expr_get_token(expr));
+				result_type = ee_sem_create_error_type(sem, ee_expr_get_token(expr));
 			}
-
-			if (left->as_primitive.dtype < right->as_primitive.dtype)
-				return right;
 			else
-				return left;
+			{
+				result_type = (left->as_primitive.dtype < right->as_primitive.dtype) ? right : left;
+			}
 		} break;
 		case BINOP_EQUAL:
 		case BINOP_NOT_EQUAL:
@@ -174,15 +197,16 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 		case BINOP_LESS:
 		case BINOP_LESS_EQUAL:
 		{
-			if (!ee_types_match(left, right))
+			if (!ee_sem_is_implicitly_convertible_to(left, right) && !ee_sem_is_implicitly_convertible_to(right, left))
 			{
 				const Token* expr_token = ee_expr_get_token(expr);
 				ee_log_error_token(&sem->log, expr_token, "Invalid operands types for comparison operation");
-
-				return ee_sem_create_error_type(sem, expr_token);
+				result_type = ee_sem_create_error_type(sem, expr_token);
 			}
-
-			return ee_scope_lookup_type(sem, scope, &_s_dtype_tokens[DTYPE_BOOL]);
+			else
+			{
+				result_type = ee_scope_lookup_entry(scope, &_s_dtype_tokens[DTYPE_BOOL])->val.as_type;
+			}
 		} break;
 		case BINOP_MOD:
 		case BINOP_SHIFT_LEFT:
@@ -192,26 +216,22 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 		case BINOP_BW_XOR:
 		case BINOP_RANGE:
 		{
-			if (!ee_types_match(left, right))
+			if (!ee_sem_is_implicitly_convertible_to(left, right) && !ee_sem_is_implicitly_convertible_to(right, left))
 			{
 				const Token* expr_token = ee_expr_get_token(expr);
 				ee_log_error_token(&sem->log, expr_token, "Invalid operands types for bitwise/range operation");
-
-				return ee_sem_create_error_type(sem, expr_token);
+				result_type = ee_sem_create_error_type(sem, expr_token);
 			}
-
-			if (ee_type_is_float(left) || ee_type_is_float(right))
+			else if (ee_type_is_float(left) || ee_type_is_float(right))
 			{
 				const Token* expr_token = ee_expr_get_token(expr);
 				ee_log_error_token(&sem->log, expr_token, "Bitwise/range operations do not support float operands");
-
-				return ee_sem_create_error_type(sem, expr_token);
+				result_type = ee_sem_create_error_type(sem, expr_token);
 			}
-
-			if (left->as_primitive.dtype < right->as_primitive.dtype)
-				return right;
 			else
-				return left;
+			{
+				result_type = (left->as_primitive.dtype < right->as_primitive.dtype) ? right : left;
+			}
 		} break;
 		case BINOP_AND:
 		case BINOP_OR:
@@ -220,20 +240,33 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 			{
 				const Token* expr_token = ee_expr_get_token(expr);
 				ee_log_error_token(&sem->log, expr_token, "Logical operator requires boolean operands");
-
-				return ee_sem_create_error_type(sem, expr_token);
+				result_type = ee_sem_create_error_type(sem, expr_token);
 			}
-			return ee_scope_lookup_type(sem, scope, &_s_dtype_tokens[DTYPE_BOOL]);
+			else
+			{
+				result_type = ee_scope_lookup_entry(scope, &_s_dtype_tokens[DTYPE_BOOL])->val.as_type;
+			}
 		} break;
-		default: EE_ASSERT(0, "Unknown operator type (%d)", expr->as_binop.type);
+		default:
+		{
+			EE_ASSERT(0, "Unknown operator type (%d)", expr->as_binop.type);
+			result_type = ee_sem_create_error_type(sem, ee_expr_get_token(expr));
 		}
+		}
+
+		expr->resolved_type = result_type;
+		return result_type;
 	} break;
 	case EXPR_UNOP:
 	{
 		Sem_Type* op_type = ee_sem_get_expr_type(sem, expr->as_unop.expr, scope);
+		Sem_Type* result_type = NULL;
 
 		if (op_type->type == SEM_TYPE_ERROR)
+		{
+			expr->resolved_type = op_type;
 			return op_type;
+		}
 
 		switch (expr->as_unop.type)
 		{
@@ -243,10 +276,12 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 			{
 				const Token* expr_token = ee_expr_get_token(expr);
 				ee_log_error_token(&sem->log, expr_token, "Logical NOT '!' operator requires a boolean operand");
-
-				return ee_sem_create_error_type(sem, expr_token);
+				result_type = ee_sem_create_error_type(sem, expr_token);
 			}
-			return ee_scope_lookup_type(sem, scope, &_s_dtype_tokens[DTYPE_BOOL]);
+			else
+			{
+				result_type = ee_scope_lookup_entry(scope, &_s_dtype_tokens[DTYPE_BOOL])->val.as_type;
+			}
 		} break;
 		case UNOP_PLUS:
 		case UNOP_MINUS:
@@ -255,10 +290,12 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 			{
 				const Token* expr_token = ee_expr_get_token(expr);
 				ee_log_error_token(&sem->log, expr_token, "Unary operator require a numeric operand");
-
-				return ee_sem_create_error_type(sem, expr_token);
+				result_type = ee_sem_create_error_type(sem, expr_token);
 			}
-			return op_type;
+			else
+			{
+				result_type = op_type;
+			}
 		} break;
 		case UNOP_BW_NOT:
 		{
@@ -266,20 +303,20 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 			{
 				const Token* expr_token = ee_expr_get_token(expr);
 				ee_log_error_token(&sem->log, expr_token, "Bitwise NOT '~' operator requires an integer operand");
-
-				return ee_sem_create_error_type(sem, expr_token);
+				result_type = ee_sem_create_error_type(sem, expr_token);
 			}
-			return op_type;
+			else
+			{
+				result_type = op_type;
+			}
 		} break;
 		case UNOP_PTR:
 		{
 			Sem_Type* ptr_type = ee_sem_alloc_type(sem, SEM_TYPE_PTR);
-
 			ptr_type->as_ptr.to = op_type;
 			ptr_type->size = 8;
 			ptr_type->align = 8;
-
-			return ptr_type;
+			result_type = ptr_type;
 		} break;
 		case UNOP_DEREF:
 		{
@@ -287,27 +324,39 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 			{
 				const Token* expr_token = ee_expr_get_token(expr);
 				ee_log_error_token(&sem->log, expr_token, "Dereference '*' operator requires a pointer operand");
-
-				return ee_sem_create_error_type(sem, expr_token);
+				result_type = ee_sem_create_error_type(sem, expr_token);
 			}
-			return op_type->as_ptr.to;
+			else
+			{
+				result_type = op_type->as_ptr.to;
+			}
 		} break;
-		default: EE_ASSERT(0, "Unknown unary operator type (%d)", expr->as_unop.type);
+		default:
+		{
+			EE_ASSERT(0, "Unknown unary operator type (%d)", expr->as_unop.type);
+			result_type = ee_sem_create_error_type(sem, ee_expr_get_token(expr));
 		}
+		}
+
+		expr->resolved_type = result_type;
+		return result_type;
 	} break;
 	case EXPR_FUNC_CALL:
 	{
 		Sem_Type* func = ee_sem_get_expr_type(sem, expr->as_func_call.func, scope);
 
 		if (func->type == SEM_TYPE_ERROR)
+		{
+			expr->resolved_type = func;
 			return func;
+		}
 
 		if (func->type != SEM_TYPE_FUNC)
 		{
 			const Token* expr_token = ee_expr_get_token(expr);
 			ee_log_error_token(&sem->log, expr_token, "Trying to call non-functional type");
-
-			return ee_sem_create_error_type(sem, expr_token);
+			expr->resolved_type = ee_sem_create_error_type(sem, expr_token);
+			return expr->resolved_type;
 		}
 
 		if (ee_array_len(&expr->as_func_call.args) != ee_array_len(&func->as_func.params))
@@ -315,8 +364,8 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 			const Token* expr_token = ee_expr_get_token(expr);
 			ee_log_error_token(&sem->log, expr_token, "Expected (%zu) args, but (%zu) were given",
 				ee_array_len(&func->as_func.params), ee_array_len(&expr->as_func_call.args));
-
-			return ee_sem_create_error_type(sem, expr_token);
+			expr->resolved_type = ee_sem_create_error_type(sem, expr_token);
+			return expr->resolved_type;
 		}
 
 		const Ast_Expr** args = (const Ast_Expr**)expr->as_func_call.args.buffer;
@@ -328,74 +377,98 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 			Sem_Type* param = params[i];
 
 			if (arg->type == SEM_TYPE_ERROR)
+			{
+				expr->resolved_type = arg;
 				return arg;
+			}
 
-			if (!ee_types_match(arg, param))
+			if (!ee_sem_is_implicitly_convertible_to(arg, param))
 			{
 				const Token* expr_token = ee_expr_get_token(expr);
 				ee_log_error_token(&sem->log, expr_token, "Type mismatch for argument (%zu)", i);
-
-				return ee_sem_create_error_type(sem, expr_token);
+				expr->resolved_type = ee_sem_create_error_type(sem, expr_token);
+				return expr->resolved_type;
 			}
 		}
 
+		expr->resolved_type = func->as_func.ret;
 		return func->as_func.ret;
 	} break;
 
 	case EXPR_ACCESS:
 	{
 		Sem_Type* entity_type = ee_sem_get_expr_type(sem, expr->as_access.entity, scope);
+		Sem_Type* result_type = NULL;
 
-		if (entity_type->type == SEM_TYPE_ERROR) 
+		if (entity_type->type == SEM_TYPE_ERROR)
+		{
+			expr->resolved_type = entity_type;
 			return entity_type;
+		}
 
 		if (entity_type->type != SEM_TYPE_STRUCT)
 		{
 			ee_log_error_token(&sem->log, expr->as_access.member, "Access operator '.' can only be used on structs");
-
-			return ee_sem_create_error_type(sem, expr->as_access.member);
+			result_type = ee_sem_create_error_type(sem, expr->as_access.member);
 		}
-
-		Sem_Struct_Member* members = (Sem_Struct_Member*)entity_type->as_struct.members.buffer;
-		for (size_t i = 0; i < ee_array_len(&entity_type->as_struct.members); ++i)
+		else
 		{
-			if (ee_token_scratch_equal(members[i].ident, expr->as_access.member))
+			Sem_Struct_Member* members = (Sem_Struct_Member*)entity_type->as_struct.members.buffer;
+			Bool found = EE_FALSE;
+			for (size_t i = 0; i < ee_array_len(&entity_type->as_struct.members); ++i)
 			{
-				return members[i].type;
+				if (ee_token_scratch_equal(members[i].ident, expr->as_access.member))
+				{
+					result_type = members[i].type;
+					found = EE_TRUE;
+					break;
+				}
+			}
+
+			if (!found)
+			{
+				ee_log_error_token(&sem->log, expr->as_access.member, "Struct does not have member with this name");
+				result_type = ee_sem_create_error_type(sem, expr->as_access.member);
 			}
 		}
 
-		ee_log_error_token(&sem->log, expr->as_access.member, "Struct does not have member with this name");
-
-		return ee_sem_create_error_type(sem, expr->as_access.member);
+		expr->resolved_type = result_type;
+		return result_type;
 	} break;
 
 	case EXPR_INDEX:
 	{
 		Sem_Type* entity_type = ee_sem_get_expr_type(sem, expr->as_index.entity, scope);
 
-		if (entity_type->type == SEM_TYPE_ERROR) 
+		if (entity_type->type == SEM_TYPE_ERROR)
+		{
+			expr->resolved_type = entity_type;
 			return entity_type;
+		}
 
 		if (entity_type->type != SEM_TYPE_ARRAY)
 		{
 			ee_log_error_token(&sem->log, ee_expr_get_token(expr->as_index.index), "Index operator '[]' can only be used on arrays");
-
-			return ee_sem_create_error_type(sem, ee_expr_get_token(expr->as_index.index));
+			expr->resolved_type = ee_sem_create_error_type(sem, ee_expr_get_token(expr->as_index.index));
+			return expr->resolved_type;
 		}
 
 		Sem_Type* index_type = ee_sem_get_expr_type(sem, expr->as_index.index, scope);
 
-		if (index_type->type == SEM_TYPE_ERROR) 
+		if (index_type->type == SEM_TYPE_ERROR)
+		{
+			expr->resolved_type = index_type;
 			return index_type;
+		}
 
 		if (!ee_type_is_int(index_type) && !ee_type_is_uint(index_type))
 		{
 			ee_log_error_token(&sem->log, ee_expr_get_token(expr->as_index.index), "Array index must be an integer");
-
-			return ee_sem_create_error_type(sem, ee_expr_get_token(expr->as_index.index));
+			expr->resolved_type = ee_sem_create_error_type(sem, ee_expr_get_token(expr->as_index.index));
+			return expr->resolved_type;
 		}
 
+		expr->resolved_type = entity_type->as_array.elem_type;
 		return entity_type->as_array.elem_type;
 	} break;
 
@@ -405,33 +478,53 @@ Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* sco
 	case EXPR_TYPE_UNION:
 	case EXPR_TYPE_ARRAY:
 	{
-		return ee_scope_lookup_type(sem, scope, &_s_dtype_tokens[DTYPE_TYPE]);
+		Sem_Type* type = ee_scope_lookup_entry(scope, &_s_dtype_tokens[DTYPE_TYPE])->val.as_type;
+		expr->resolved_type = type;
+		return type;
 	}
 
-	default: EE_ASSERT(0, "Unknown expression type (%d)", expr->type);
+	default:
+	{
+		EE_ASSERT(0, "Unknown expression type (%d)", expr->type);
+		Sem_Type* type = ee_sem_create_error_type(sem, ee_expr_get_token(expr));
+		expr->resolved_type = type;
+		return type;
 	}
-
-	return ee_sem_create_error_type(sem, ee_expr_get_token(expr));
+	}
 }
 
 Sem_Type* ee_sem_resolve_type_expr(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* scope)
 {
 	if (expr == NULL)
 	{
-		return ee_scope_lookup_type(sem, scope, &_s_dtype_tokens[DTYPE_VOID]);
+		return ee_scope_lookup_entry(scope, &_s_dtype_tokens[DTYPE_VOID])->val.as_type;
 	}
 
 	switch (expr->type)
 	{
 	case EXPR_IDENT:
 	{
-		Sem_Type* out = ee_scope_lookup_type(sem, scope, expr->as_ident.token);
-		if (out != NULL)
-			return out;
+		Sem_Entry* entry = ee_scope_lookup_entry(scope, expr->as_ident.token);
 
-		ee_log_error_token(&sem->log, expr->as_ident.token, "Unknown type name");
+		if (entry == NULL)
+		{
+			ee_log_error_token(&sem->log, expr->as_ident.token, "Unknown type name");
+			expr->resolved_type = ee_sem_create_error_type(sem, expr->as_ident.token);
+			return expr->resolved_type;
+		}
 
-		return ee_sem_create_error_type(sem, expr->as_ident.token);
+		if (entry->type_info->type != SEM_TYPE_PRIMITIVE ||
+			entry->type_info->as_primitive.dtype != DTYPE_TYPE)
+		{
+			ee_log_error_token(&sem->log, expr->as_ident.token, "Identifier is a variable, not a type");
+			expr->resolved_type = ee_sem_create_error_type(sem, expr->as_ident.token);
+			return expr->resolved_type;
+		}
+
+		EE_ASSERT(entry->val.as_type != NULL, "Type entry has NULL value");
+
+		expr->resolved_type = entry->val.as_type;
+		return entry->val.as_type;
 	} break;
 
 	case EXPR_TYPE_STRUCT:
@@ -468,6 +561,7 @@ Sem_Type* ee_sem_resolve_type_expr(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope*
 		out->token = &_s_anonymous_token;
 		out->size = ee_round_up_pow2(offset, out->align);
 
+		expr->resolved_type = out;
 		return out;
 	} break;
 
@@ -498,6 +592,7 @@ Sem_Type* ee_sem_resolve_type_expr(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope*
 		out->token = &_s_anonymous_token;
 		out->size = ee_round_up_pow2(offset, out->align);
 
+		expr->resolved_type = out;
 		return out;
 	} break;
 
@@ -527,6 +622,7 @@ Sem_Type* ee_sem_resolve_type_expr(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope*
 		out->token = &_s_anonymous_token;
 		out->size = ee_round_up_pow2(out->size, out->align);
 
+		expr->resolved_type = out;
 		return out;
 	} break;
 
@@ -535,23 +631,30 @@ Sem_Type* ee_sem_resolve_type_expr(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope*
 		Sem_Type* out = ee_sem_alloc_type(sem, SEM_TYPE_ARRAY);
 		Sem_Type* size_type = ee_sem_get_expr_type(sem, expr->as_type_array.size, scope);
 
-		if (size_type->type == SEM_TYPE_ERROR) 
+		if (size_type->type == SEM_TYPE_ERROR)
+		{
+			expr->resolved_type = size_type;
 			return size_type;
+		}
 
 		if (!ee_type_is_int(size_type) && !ee_type_is_uint(size_type))
 		{
 			ee_log_error_token(&sem->log, ee_expr_get_token(expr->as_type_array.size), "Array size must be an integer");
-
-			return ee_sem_create_error_type(sem, ee_expr_get_token(expr->as_type_array.size));
+			expr->resolved_type = ee_sem_create_error_type(sem, ee_expr_get_token(expr->as_type_array.size));
+			return expr->resolved_type;
 		}
 
 		out->as_array.elem_type = ee_sem_resolve_type_expr(sem, expr->as_type_array.type_expr, scope);
 
 		if (out->as_array.elem_type->type == SEM_TYPE_ERROR)
+		{
+			expr->resolved_type = out->as_array.elem_type;
 			return out->as_array.elem_type;
+		}
 
 		out->align = out->as_array.elem_type->align;
 
+		expr->resolved_type = out;
 		return out;
 	} break;
 
@@ -566,13 +669,24 @@ Sem_Type* ee_sem_resolve_type_expr(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope*
 			out->align = 8;
 			out->as_ptr.to = ee_sem_resolve_type_expr(sem, expr->as_unop.expr, scope);
 
+			expr->resolved_type = out;
 			return out;
 		}
 	}
 	default:
-		ee_log_error_token(&sem->log, ee_expr_get_token(expr), "Type expression expected, but got a value expression");
+	{
+		if (expr->type == EXPR_FUNC_CALL)
+		{
+			ee_log_error_token(&sem->log, ee_expr_get_token(expr), "Function calls are not yet supported in type expressions");
+		}
+		else
+		{
+			ee_log_error_token(&sem->log, ee_expr_get_token(expr), "Type expression expected, but got a value expression");
+		}
 
-		return ee_sem_create_error_type(sem, ee_expr_get_token(expr));
+		expr->resolved_type = ee_sem_create_error_type(sem, ee_expr_get_token(expr));
+		return expr->resolved_type;
+	}
 	}
 }
 
@@ -606,7 +720,7 @@ void ee_sem_resolve_func_headers(Sem_Analyzer* sem, Ast_Stmt* block, Sem_Scope* 
 		}
 		else
 		{
-			func_type->as_func.ret = ee_scope_lookup_type(sem, scope, &_s_dtype_tokens[DTYPE_VOID]);
+			func_type->as_func.ret = ee_scope_lookup_entry(scope, &_s_dtype_tokens[DTYPE_VOID])->val.as_type;
 		}
 
 		func_type->token = stmt->as_func_decl.ident;
@@ -650,10 +764,24 @@ void ee_sem_resolve_stmt(Sem_Analyzer* sem, Ast_Stmt* stmt, Sem_Scope* parent, S
 
 		if (declared_type != NULL && value_type != NULL)
 		{
-			if (!ee_sem_type_can_cast(declared_type, value_type))
+			Bool is_convertible = ee_sem_is_implicitly_convertible_to(value_type, declared_type);
+
+			if (!is_convertible && stmt->as_var_decl.val->type == EXPR_LIT)
+			{
+				const Token* lit_token = stmt->as_var_decl.val->as_lit.token;
+				if (lit_token->type == TOKEN_LIT_INT || lit_token->type == TOKEN_LIT_FLOAT)
+				{
+					if (ee_sem_type_can_cast(value_type, declared_type))
+					{
+						is_convertible = EE_TRUE;
+					}
+				}
+			}
+
+			if (!is_convertible)
 			{
 				const Token* expr_token = ee_expr_get_token(stmt->as_var_decl.val);
-				ee_log_error_token(&sem->log, expr_token, "Type mismatch in variable declaration");
+				ee_log_error_token(&sem->log, expr_token, "Type mismatch in variable declaration, cannot convert value to declared type");
 				final_type = ee_sem_create_error_type(sem, expr_token);
 			}
 			else
@@ -676,6 +804,14 @@ void ee_sem_resolve_stmt(Sem_Analyzer* sem, Ast_Stmt* stmt, Sem_Scope* parent, S
 		}
 
 		Sem_Entry* var_entry = ee_alloc_entry(sem, SEM_ENTRY_VAR, stmt->as_var_decl.ident, stmt, final_type, (Sem_Value) { 0 });
+
+		if (final_type->type == SEM_TYPE_PRIMITIVE &&
+			final_type->as_primitive.dtype == DTYPE_TYPE &&
+			stmt->as_var_decl.val != NULL)
+		{
+			var_entry->val.dtype = DTYPE_TYPE;
+			var_entry->val.as_type = ee_sem_resolve_type_expr(sem, stmt->as_var_decl.val, parent);
+		}
 
 		ee_sem_check_or_panic(sem, ee_scope_lookup_entry(parent, stmt->as_var_decl.ident) == NULL, stmt->as_var_decl.ident,
 			"Trying to redefine an existing variable");
@@ -793,12 +929,12 @@ void ee_sem_resolve_stmt(Sem_Analyzer* sem, Ast_Stmt* stmt, Sem_Scope* parent, S
 			}
 		}
 
-		Sem_Type* ret_type = ee_scope_lookup_type(sem, parent, &_s_dtype_tokens[DTYPE_VOID]);
+		Sem_Type* ret_type = ee_scope_lookup_entry(parent, &_s_dtype_tokens[DTYPE_VOID])->val.as_type;
 
 		if (stmt->as_ret.val != NULL)
 			ret_type = ee_sem_get_expr_type(sem, stmt->as_ret.val, parent);
 
-		if (ret_type->type != SEM_TYPE_ERROR && !ee_types_match(ret_type, func_ret_type))
+		if (ret_type->type != SEM_TYPE_ERROR && !ee_sem_is_implicitly_convertible_to(ret_type, func_ret_type))
 		{
 			if (stmt->as_ret.val != NULL)
 			{
@@ -828,7 +964,8 @@ void ee_sem_resolve_stmt(Sem_Analyzer* sem, Ast_Stmt* stmt, Sem_Scope* parent, S
 				break;
 			}
 
-			if (entry->decl_stmt->type == STMT_VAR_DECL &&
+			if (entry->decl_stmt != NULL &&
+				entry->decl_stmt->type == STMT_VAR_DECL &&
 				ee_var_decl_has_flag(entry->decl_stmt, AST_CONST))
 			{
 				ee_log_error_token(&sem->log, lvalue->as_ident.token, "Cannot assign to a constant variable");
@@ -877,7 +1014,7 @@ void ee_sem_resolve_stmt(Sem_Analyzer* sem, Ast_Stmt* stmt, Sem_Scope* parent, S
 			break;
 		}
 
-		if (!ee_types_match(lhs_type, rhs_type))
+		if (!ee_sem_is_implicitly_convertible_to(rhs_type, lhs_type))
 		{
 			const Token* expr_token = ee_expr_get_token(rvalue);
 			ee_log_error_token(&sem->log, expr_token, "Type mismatch: cannot assign value");
@@ -966,12 +1103,9 @@ Sem_Scope* ee_alloc_scope(Sem_Analyzer* sem, Sem_Scope* parent)
 	Sem_Scope* out = sem->allocator.alloc_fn(&sem->allocator, sizeof(*out));
 	EE_ASSERT(out != NULL, "Unable to allocate memory");
 
-	DictConfig config = ee_dict_config_new(&sem->allocator, ee_token_ptr_hash, ee_token_ptr_eq, NULL, NULL);
-
 	out->parent = parent;
 	out->children = ee_array_new(32, sizeof(Sem_Scope*), &sem->allocator);
 	out->symbols = ee_array_new(32, sizeof(Sem_Entry), &sem->allocator);
-	out->types = ee_dict_new(32, sizeof(const Token*), sizeof(Sem_Type*), config);
 	out->top = 0;
 
 	if (parent != NULL)
@@ -1004,31 +1138,9 @@ Sem_Entry* ee_scope_lookup_entry(Sem_Scope* scope, const Token* ident)
 	return NULL;
 }
 
-Sem_Type* ee_scope_lookup_type(Sem_Analyzer* sem, Sem_Scope* scope, const Token* ident)
-{
-	if (ident == NULL || ident->type == TOKEN_INVALID)
-		return NULL;
-
-	while (scope)
-	{
-		if (ee_dict_contains(&scope->types, EE_RECAST_U8(ident)))
-			return *(Sem_Type**)ee_dict_at(&scope->types, EE_RECAST_U8(ident));
-
-		scope = scope->parent;
-	}
-
-	return NULL;
-}
-
 void ee_scope_set_entry(Sem_Scope* scope, Sem_Entry* entry)
 {
 	ee_array_push(&scope->symbols, (const u8*)entry);
-}
-
-void ee_scope_set_type(Sem_Scope* scope, const Token* ident, Sem_Type* entry)
-{
-	EE_ASSERT(ident != NULL, "Trying to set NULL identifier");
-	ee_dict_set(&scope->types, EE_RECAST_U8(ident), EE_RECAST_U8(entry));
 }
 
 Sem_Analyzer ee_sem_new(Ast_Module* mod, Logger log, const Allocator* allocator)
@@ -1055,6 +1167,8 @@ Sem_Analyzer ee_sem_new(Ast_Module* mod, Logger log, const Allocator* allocator)
 	out.mod = mod;
 	out.log = log;
 
+	Sem_Type* primitive_types[DTYPE_COUNT] = { 0 };
+
 	for (Data_Type dtype = 0; dtype < DTYPE_COUNT; ++dtype)
 	{
 		Sem_Type* ptype = ee_sem_alloc_type(&out, SEM_TYPE_PRIMITIVE);
@@ -1064,7 +1178,25 @@ Sem_Analyzer ee_sem_new(Ast_Module* mod, Logger log, const Allocator* allocator)
 		ptype->token = &_s_dtype_tokens[dtype];
 		ptype->as_primitive.dtype = dtype;
 
-		ee_scope_set_type(out.global_scope, ptype->token, ptype);
+		primitive_types[dtype] = ptype;
+	}
+
+	Sem_Type* metatype = primitive_types[DTYPE_TYPE];
+
+	for (Data_Type dtype = 0; dtype < DTYPE_COUNT; ++dtype)
+	{
+		Sem_Value val = { 0 };
+
+		val.dtype = DTYPE_TYPE;
+		val.as_type = primitive_types[dtype];
+
+		Sem_Entry* entry = ee_alloc_entry(&out, SEM_ENTRY_VAR,
+			&_s_dtype_tokens[dtype],
+			NULL,
+			metatype,
+			val);
+
+		ee_scope_set_entry(out.global_scope, entry);
 	}
 
 	return out;
@@ -1074,7 +1206,7 @@ void ee_sem_debug_print_scope(Sem_Scope* sem, size_t indent)
 {
 	ee_println_with_indent(indent, "SCOPE: ");
 
-	if (ee_dict_count(&sem->symbols) > 0)
+	if (ee_array_len(&sem->symbols) > 0)
 		ee_println_with_indent(indent, "SYMBOLS: ");
 
 	Sem_Entry* entries = (Sem_Entry*)sem->symbols.buffer;

@@ -13,7 +13,7 @@ typedef struct Codegen
 	const char* file_out;
 } Codegen;
 
-Codegen ee_gen_new(const Sem_Scope* scope, const Ast_Module* mod, const char* file_out);
+Codegen ee_gen_new(Sem_Scope* root_scope, const Ast_Module* mod, const char* file_out);
 const Token* ee_stmt_get_token(const Ast_Stmt* stmt);
 
 void ee_gen_run(Codegen* gen);

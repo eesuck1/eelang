@@ -1,1 +1,7 @@
-let Point = (x: f32, y: f32);
+fn main() -> i64
+{
+	let T = i32;
+	let c: T = 10;
+
+	return 0;
+}

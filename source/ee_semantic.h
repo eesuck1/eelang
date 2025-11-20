@@ -4,47 +4,21 @@
 #include "ee_parser.h"
 #include "ee_dict.h"
 
-EE_INLINE u64 ee_token_ptr_hash(const u8* key, size_t len)
-{
-	EE_UNUSED(len);
-	const Token* token = *(const Token**)key;
-
-	EE_ASSERT(token->type == TOKEN_IDENTIFIER, "Wrong key for type table hash function, expected identifier, got (%d)", token->type);
-
-	return ee_hash_fast((const u8*)token->scratch.buffer, token->scratch.len);
-}
-
-EE_INLINE i32 ee_token_ptr_eq(const u8* a, const u8* b, size_t len)
-{
-	EE_UNUSED(len);
-
-	const Token* a_token = *(const Token**)a;
-	const Token* b_token = *(const Token**)b;
-
-	EE_ASSERT(a_token->type == TOKEN_IDENTIFIER, "Wrong key A for type table, expected identifier, got (%d)", a_token->type);
-	EE_ASSERT(b_token->type == TOKEN_IDENTIFIER, "Wrong key B for type table, expected identifier, got (%d)", b_token->type);
-
-	if (a_token->scratch.len != b_token->scratch.len)
-		return EE_FALSE;
-
-	return memcmp(a_token->scratch.buffer, b_token->scratch.buffer, a_token->scratch.len) == 0;
-}
-
 typedef enum Data_Type
 {
-	DTYPE_U8   = 0,
-	DTYPE_U16  = 1,
-	DTYPE_U32  = 2,
-	DTYPE_U64  = 3,
-	DTYPE_I8   = 4,
-	DTYPE_I16  = 5,
-	DTYPE_I32  = 6,
-	DTYPE_I64  = 7,
-	DTYPE_F32  = 8,
-	DTYPE_F64  = 9,
+	DTYPE_U8 = 0,
+	DTYPE_U16 = 1,
+	DTYPE_U32 = 2,
+	DTYPE_U64 = 3,
+	DTYPE_I8 = 4,
+	DTYPE_I16 = 5,
+	DTYPE_I32 = 6,
+	DTYPE_I64 = 7,
+	DTYPE_F32 = 8,
+	DTYPE_F64 = 9,
 	DTYPE_VOID = 10,
 	DTYPE_BOOL = 11,
-	DTYPE_STR  = 12,
+	DTYPE_STR = 12,
 	DTYPE_TYPE = 13,
 	DTYPE_COUNT,
 } Data_Type;
@@ -57,10 +31,10 @@ typedef enum Sem_Entry_Type
 {
 	SEM_ENTRY_FUNC = 0,
 	SEM_ENTRY_VAR = 1,
-	SEM_ENTRY_TYPE = 2,
 } Sem_Entry_Type;
 
 typedef struct Sem_Scope Sem_Scope;
+typedef struct Sem_Type Sem_Type;
 
 typedef struct Sem_Value
 {
@@ -71,6 +45,7 @@ typedef struct Sem_Value
 		u8 as_u8; u16 as_u16; u32 as_u32; u64 as_u64;
 		i8 as_i8; i16 as_i16; i32 as_i32; i64 as_i64;
 		f32 as_f32; f64 as_f64;
+		Sem_Type* as_type;
 	};
 } Sem_Value;
 
@@ -135,7 +110,7 @@ typedef struct Sem_Type_Error
 	const Token* token;
 } Sem_Type_Error;
 
-typedef struct Sem_Type
+struct Sem_Type
 {
 	const Token* token;
 
@@ -155,7 +130,7 @@ typedef struct Sem_Type
 		Sem_Type_Func      as_func;
 		Sem_Type_Error     as_error;
 	};
-} Sem_Type;
+};
 
 typedef struct Sem_Entry
 {
@@ -168,7 +143,6 @@ typedef struct Sem_Entry
 
 typedef struct Sem_Scope
 {
-	Dict types;
 	Sem_Scope* parent;
 	Array symbols;
 	Array children;
@@ -189,9 +163,7 @@ const Token* ee_expr_get_token(const Ast_Expr* expr);
 Sem_Entry* ee_alloc_entry(Sem_Analyzer* sem, Sem_Entry_Type type, const Token* ident, Ast_Stmt* decl_stmt, Sem_Type* type_info, Sem_Value val);
 Sem_Scope* ee_alloc_scope(Sem_Analyzer* sem, Sem_Scope* parent);
 Sem_Entry* ee_scope_lookup_entry(Sem_Scope* scope, const Token* ident);
-Sem_Type* ee_scope_lookup_type(Sem_Analyzer* sem, Sem_Scope* scope, const Token* ident);
 void ee_scope_set_entry(Sem_Scope* scope, Sem_Entry* entry);
-void ee_scope_set_type(Sem_Scope* scope, const Token* ident, Sem_Type* entry);
 
 Sem_Type* ee_sem_create_error_type(Sem_Analyzer* sem, const Token* token);
 Sem_Type* ee_sem_get_expr_type(Sem_Analyzer* sem, Ast_Expr* expr, Sem_Scope* scope);
@@ -236,11 +208,13 @@ EE_INLINE Bool ee_type_is_str(const Sem_Type* type)
 	return type->type == SEM_TYPE_PRIMITIVE && type->as_primitive.dtype == DTYPE_STR;
 }
 
-// TODO(eesuck): think about complex dtypes match
 EE_INLINE Bool ee_types_match(const Sem_Type* a, const Sem_Type* b)
 {
 	if (a == b)
 		return EE_TRUE;
+
+	if (a == NULL || b == NULL)
+		return EE_FALSE;
 
 	if (a->type != b->type)
 		return EE_FALSE;
@@ -249,14 +223,7 @@ EE_INLINE Bool ee_types_match(const Sem_Type* a, const Sem_Type* b)
 	{
 	case SEM_TYPE_PRIMITIVE:
 	{
-		if (ee_type_is_int(a) && ee_type_is_int(b)) return EE_TRUE;
-		if (ee_type_is_uint(a) && ee_type_is_uint(b)) return EE_TRUE;
-		if (ee_type_is_float(a) && ee_type_is_float(b)) return EE_TRUE;
-		if (ee_type_is_bool(a) && ee_type_is_bool(b)) return EE_TRUE;
-		if (ee_type_is_void(a) && ee_type_is_void(b)) return EE_TRUE;
-		if (ee_type_is_str(a) && ee_type_is_str(b)) return EE_TRUE;
-
-		return EE_FALSE;
+		return a->as_primitive.dtype == b->as_primitive.dtype;
 	}
 
 	case SEM_TYPE_PTR:
@@ -348,18 +315,64 @@ EE_INLINE Bool ee_types_match(const Sem_Type* a, const Sem_Type* b)
 	return EE_FALSE;
 }
 
-EE_INLINE Bool ee_sem_type_can_cast(Sem_Type* val, Sem_Type* type)
+EE_INLINE Bool ee_sem_is_implicitly_convertible_to(Sem_Type* from, Sem_Type* to)
 {
-	if (val->type != type->type)
+	if (ee_types_match(from, to))
+		return EE_TRUE;
+
+	if (from->type != SEM_TYPE_PRIMITIVE || to->type != SEM_TYPE_PRIMITIVE)
 		return EE_FALSE;
 
-	EE_ASSERT(val->type == SEM_TYPE_PRIMITIVE && type->type == SEM_TYPE_PRIMITIVE, "complex type conversion are not done yet");
+	Data_Type from_dt = from->as_primitive.dtype;
+	Data_Type to_dt = to->as_primitive.dtype;
 
-	if ((ee_type_is_int(val) || ee_type_is_uint(val) || ee_type_is_bool(val) || ee_type_is_float(val)) &&
-		(ee_type_is_int(type) || ee_type_is_uint(type) || ee_type_is_bool(type) || ee_type_is_float(type)))
+	if (ee_type_is_int(from) && ee_type_is_int(to))
+	{
+		return from_dt <= to_dt;
+	}
+
+	if (ee_type_is_uint(from) && ee_type_is_uint(to))
+	{
+		return from_dt <= to_dt;
+	}
+
+	if (ee_type_is_float(from) && ee_type_is_float(to))
+	{
+		return from_dt <= to_dt;
+	}
+
+	if ((ee_type_is_int(from) || ee_type_is_uint(from)) && ee_type_is_float(to))
+	{
 		return EE_TRUE;
+	}
 
 	return EE_FALSE;
 }
 
-#endif // EE_SEMANTIC_H
+EE_INLINE Bool ee_sem_type_can_cast(Sem_Type* from, Sem_Type* to)
+{
+	if (from->type == SEM_TYPE_PRIMITIVE && to->type == SEM_TYPE_PRIMITIVE)
+	{
+		return (ee_type_is_int(from) || ee_type_is_uint(from) || ee_type_is_bool(from) || ee_type_is_float(from)) &&
+			(ee_type_is_int(to) || ee_type_is_uint(to) || ee_type_is_bool(to) || ee_type_is_float(to));
+	}
+
+	if (from->type == SEM_TYPE_PTR && to->type == SEM_TYPE_PTR)
+	{
+		return EE_TRUE;
+	}
+
+	if (from->type == SEM_TYPE_PTR && (ee_type_is_int(to) || ee_type_is_uint(to)))
+	{
+		return EE_TRUE;
+	}
+
+	if ((ee_type_is_int(from) || ee_type_is_uint(from)) && to->type == SEM_TYPE_PTR)
+	{
+		return EE_TRUE;
+	}
+
+	return EE_FALSE;
+}
+
+#endif

@@ -181,6 +181,7 @@ typedef struct Ast_Type_Expr_Array
 typedef struct Ast_Expr
 {
 	Ast_Expr_Type type;
+	struct Sem_Type* resolved_type;
 
 	union
 	{
