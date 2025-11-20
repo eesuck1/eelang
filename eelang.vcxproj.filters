@@ -21,22 +21,25 @@
     <ClCompile Include="source\ee_lexer.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="source\ee_log.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ee_parser.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="source\ee_lexer.h">
+    <None Include="todo.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="source\ee_parser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\ee_parser.h">
+    <ClInclude Include="source\ee_lexer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\ee_log.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="source\ee_semantic.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="todo.md" />
   </ItemGroup>
 </Project>

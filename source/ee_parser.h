@@ -59,7 +59,9 @@ typedef enum Ast_Expr_Type
 	EXPR_TYPE_STRUCT = 7,
 	EXPR_TYPE_TUPLE  = 8,
 	EXPR_TYPE_UNION  = 9,
-	EXPR_TYPE_ARRAY  = 10,
+	EXPR_TYPE_ENUM   = 10,
+	EXPR_TYPE_ARRAY  = 11,
+	EXPR_INIT_LIST   = 12,
 } Ast_Expr_Type;
 
 typedef enum Ast_Stmt_Type
@@ -72,11 +74,11 @@ typedef enum Ast_Stmt_Type
 	STMT_FN        = 5,
 	STMT_RETURN    = 6,
 	STMT_MATCH     = 7,
-	STMT_STRUCT    = 8,
-	STMT_ENUM      = 9,
-	STMT_UNION     = 10,
-	STMT_ASSIGN    = 11,
-	STMT_EXPR      = 12,
+	STMT_ASSIGN    = 8,
+	STMT_EXPR      = 9,
+	STMT_BREAK     = 10,
+	STMT_CONTINUE  = 11,
+	STMT_DEFER     = 12,
 } Ast_Stmt_Type;
 
 typedef enum Ast_Type_Expr_Flag
@@ -86,7 +88,9 @@ typedef enum Ast_Type_Expr_Flag
 
 typedef enum Ast_Flag
 {
-	AST_CONST = 0,
+	AST_FLAG_NONE     = 0,
+	AST_FLAG_CONST    = (1 << 0),
+	AST_FLAG_COMPTIME = (1 << 1),
 } Ast_Flag;
 
 typedef i32 Ast_Precedence;
@@ -139,7 +143,7 @@ typedef struct Ast_Unop_Expr
 
 typedef struct Ast_Func_Call_Expr
 {
-	Array args;
+	Array args;  // Ast_Expr*
 	Ast_Expr* func;
 } Ast_Func_Call_Expr;
 
@@ -157,20 +161,26 @@ typedef struct Ast_Index_Expr
 
 typedef struct Ast_Type_Expr_Struct
 {
-	Array members;
-	Array types;
+	Array members; // const Token*
+	Array types;   // Ast_Expr*
 } Ast_Type_Expr_Struct;
 
 typedef struct Ast_Type_Expr_Tuple
 {
-	Array types;
+	Array types;   // Ast_Expr*
 } Ast_Type_Expr_Tuple;
 
 typedef struct Ast_Type_Expr_Union
 {
-	Array members;
-	Array types;
+	Array members; // const Token*
+	Array types;   // Ast_Expr*
 } Ast_Type_Expr_Union;
+
+typedef struct Ast_Type_Expr_Enum
+{
+	Array members; // const Token*
+	Array values;  // Ast_Expr*
+} Ast_Type_Expr_Enum;
 
 typedef struct Ast_Type_Expr_Array
 {
@@ -178,10 +188,16 @@ typedef struct Ast_Type_Expr_Array
 	Ast_Expr* type_expr;
 } Ast_Type_Expr_Array;
 
+typedef struct Ast_Init_List
+{
+	Array members; // const Token*
+	Array values;  // Ast_Expr*
+} Ast_Init_List;
+
 typedef struct Ast_Expr
 {
 	Ast_Expr_Type type;
-	struct Sem_Type* resolved_type;
+	i32 flags;
 
 	union
 	{
@@ -196,6 +212,8 @@ typedef struct Ast_Expr
 		Ast_Type_Expr_Tuple as_type_tuple;
 		Ast_Type_Expr_Union as_type_union;
 		Ast_Type_Expr_Array as_type_array;
+		Ast_Type_Expr_Enum as_type_enum;
+		Ast_Init_List as_init_list;
 	};
 } Ast_Expr;
 
@@ -214,7 +232,7 @@ typedef struct Ast_Assign_Stmt
 
 typedef struct Ast_Block_Stmt
 {
-	Array stmts;
+	Array stmts; // Ast_Stmt*
 } Ast_Block_Stmt;
 
 typedef struct Ast_Expr_Stmt
@@ -242,11 +260,16 @@ typedef struct Ast_While_Stmt
 	Ast_Stmt* body;
 } Ast_While_Stmt;
 
+typedef struct Ast_Func_Param
+{
+	const Token* ident;
+	Ast_Expr* type;
+} Ast_Func_Param;
+
 typedef struct Ast_Func_Decl_Stmt
 {
 	const Token* ident;
-	Array param_idents;
-	Array param_types;
+	Array params;
 	Ast_Expr* ret_type;
 	Ast_Stmt* body;
 } Ast_Func_Decl_Stmt;
@@ -256,10 +279,15 @@ typedef struct Ast_Ret_Stmt
 	Ast_Expr* val;
 } Ast_Ret_Stmt;
 
+typedef struct Ast_Defer_Stmt
+{
+	Ast_Stmt* stmt;
+} Ast_Defer_Stmt;
+
 typedef struct Ast_Stmt
 {
 	Ast_Stmt_Type type;
-	u64 flags;
+	i32 flags;
 
 	union
 	{
@@ -272,6 +300,7 @@ typedef struct Ast_Stmt
 		Ast_While_Stmt as_while;
 		Ast_Func_Decl_Stmt as_func_decl;
 		Ast_Ret_Stmt as_ret;
+		Ast_Defer_Stmt as_defer;
 	};
 } Ast_Stmt;
 
@@ -289,19 +318,34 @@ typedef struct Parser
 	const Array* tokens;
 } Parser;
 
-EE_INLINE void ee_var_decl_set_flag(Ast_Stmt* var_decl, Ast_Flag flag)
+EE_INLINE void ee_stmt_set_flag(Ast_Stmt* stmt, Ast_Flag flag)
 {
-	var_decl->flags |= flag;
+	stmt->flags |= flag;
 }
 
-EE_INLINE void ee_var_decl_remove_flag(Ast_Stmt* var_decl, Ast_Flag flag)
+EE_INLINE void ee_stmt_remove_flag(Ast_Stmt* stmt, Ast_Flag flag)
 {
-	var_decl->flags &= ~flag;
+	stmt->flags &= ~flag;
 }
 
-EE_INLINE Bool ee_var_decl_has_flag(Ast_Stmt* var_decl, Ast_Flag flag)
+EE_INLINE Bool ee_stmt_has_flag(Ast_Stmt* stmt, Ast_Flag flag)
 {
-	return var_decl->flags & flag;
+	return stmt->flags & flag;
+}
+
+EE_INLINE void ee_expr_set_flag(Ast_Expr* expr, Ast_Flag flag)
+{
+	expr->flags |= flag;
+}
+
+EE_INLINE void ee_expr_remove_flag(Ast_Expr* expr, Ast_Flag flag)
+{
+	expr->flags &= ~flag;
+}
+
+EE_INLINE Bool ee_expr_has_flag(Ast_Expr* expr, Ast_Flag flag)
+{
+	return expr->flags & flag;
 }
 
 EE_INLINE i32 ee_op_prec(Ast_Binop_Type op)
@@ -320,7 +364,7 @@ EE_INLINE i32 ee_token_is_lit(const Token* token)
 		(token->type == TOKEN_TRUE) || (token->type == TOKEN_FALSE);
 }
 
-Ast_Binop_Type ee_token_match_binop(const Token* token)
+EE_INLINE Ast_Binop_Type ee_token_match_binop(const Token* token)
 {
 	if (token->type == TOKEN_INVALID)
 	{
@@ -338,7 +382,7 @@ Ast_Binop_Type ee_token_match_binop(const Token* token)
 	return BINOP_COUNT;
 }
 
-Ast_Unop_Type ee_token_match_unop(const Token* token)
+EE_INLINE Ast_Unop_Type ee_token_match_unop(const Token* token)
 {
 	if (token->type == TOKEN_INVALID)
 	{

@@ -88,6 +88,8 @@ typedef enum Token_Type
     TOKEN_RANGE         = 299,
     TOKEN_IN            = 300,
     TOKEN_ARROW         = 301,
+    TOKEN_COMPTIME      = 302,
+    TOKEN_DEFER         = 303,
 
     TOKEN_INVALID       = -1024
 } Token_Type;

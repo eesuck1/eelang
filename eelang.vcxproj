@@ -102,7 +102,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)eelib/utils_cpp;$(SolutionDir)eelib/utils;$(SolutionDir)source/</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)eelib/utils;$(SolutionDir)source/</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
@@ -119,7 +119,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)eelib/utils_cpp;$(SolutionDir)eelib/utils;$(SolutionDir)source/</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)eelib/utils;$(SolutionDir)source/</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
@@ -131,15 +131,16 @@
   <ItemGroup>
     <ClCompile Include="main.c" />
     <ClCompile Include="source\ee_lexer.c" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="source\ee_semantic.h" />
-    <ClInclude Include="source\ee_lexer.h" />
-    <ClInclude Include="source\ee_log.h" />
-    <ClInclude Include="source\ee_parser.h" />
+    <ClCompile Include="source\ee_log.c" />
+    <ClCompile Include="source\ee_parser.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="todo.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="source\ee_lexer.h" />
+    <ClInclude Include="source\ee_log.h" />
+    <ClInclude Include="source\ee_parser.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

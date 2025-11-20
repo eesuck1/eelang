@@ -266,6 +266,8 @@ i32 ee_lex_process_id(Lexer* lex)
 				type = TOKEN_MATCH;
 			else if (memcmp(str.buffer, "false", 5) == 0)
 				type = TOKEN_FALSE;
+			else if (memcmp(str.buffer, "defer", 5) == 0)
+				type = TOKEN_DEFER;
 		} break;
 		case 6:
 		{
@@ -278,6 +280,8 @@ i32 ee_lex_process_id(Lexer* lex)
 		{
 			if (memcmp(str.buffer, "continue", 8) == 0)
 				type = TOKEN_CONTINUE;
+			else if (memcmp(str.buffer, "comptime", 8) == 0)
+				type = TOKEN_COMPTIME;
 		} break;
 		default: break;
 		}
