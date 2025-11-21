@@ -7,9 +7,12 @@
 #include "ee_array.h"
 #include "ee_string.h"
 
-#define EE_AST_NODE_NULL                   ((Ast_Node_Handle)-1)
-#define EE_EXPR_PREC_MIN                   (-1024)
-#define EE_EXPR_PREC_MAX                   (1024)
+#define EE_AST_NODE_NULL           ((Ast_Node_Handle)-1)
+#define EE_EXPR_PREC_MIN           (-1024)
+#define EE_EXPR_PREC_MAX           (1024)
+#define EE_TYPE_BASE_SIZE          (8)
+#define EE_FUNC_ARGS_BASE_SIZE     (8)
+#define EE_BLOCK_BASE_STMT_SIZE    (16)
 
 typedef enum Ast_Binop_Type
 {
@@ -143,7 +146,7 @@ typedef struct Ast_Unop_Expr
 
 typedef struct Ast_Func_Call_Expr
 {
-	Array args;  // Ast_Expr*
+	Linked_Array args;  // Ast_Expr*
 	Ast_Expr* func;
 } Ast_Func_Call_Expr;
 
@@ -161,25 +164,25 @@ typedef struct Ast_Index_Expr
 
 typedef struct Ast_Type_Expr_Struct
 {
-	Array members; // const Token*
-	Array types;   // Ast_Expr*
+	Linked_Array members; // const Token*
+	Linked_Array types;   // Ast_Expr*
 } Ast_Type_Expr_Struct;
 
 typedef struct Ast_Type_Expr_Tuple
 {
-	Array types;   // Ast_Expr*
+	Linked_Array types;   // Ast_Expr*
 } Ast_Type_Expr_Tuple;
 
 typedef struct Ast_Type_Expr_Union
 {
-	Array members; // const Token*
-	Array types;   // Ast_Expr*
+	Linked_Array members; // const Token*
+	Linked_Array types;   // Ast_Expr*
 } Ast_Type_Expr_Union;
 
 typedef struct Ast_Type_Expr_Enum
 {
-	Array members; // const Token*
-	Array values;  // Ast_Expr*
+	Linked_Array members; // const Token*
+	Linked_Array values;  // Ast_Expr*
 } Ast_Type_Expr_Enum;
 
 typedef struct Ast_Type_Expr_Array
@@ -190,8 +193,8 @@ typedef struct Ast_Type_Expr_Array
 
 typedef struct Ast_Init_List
 {
-	Array members; // const Token*
-	Array values;  // Ast_Expr*
+	Linked_Array members; // const Token*
+	Linked_Array values;  // Ast_Expr*
 } Ast_Init_List;
 
 typedef struct Ast_Expr
@@ -232,7 +235,7 @@ typedef struct Ast_Assign_Stmt
 
 typedef struct Ast_Block_Stmt
 {
-	Array stmts; // Ast_Stmt*
+	Linked_Array stmts; // Ast_Stmt*
 } Ast_Block_Stmt;
 
 typedef struct Ast_Expr_Stmt
@@ -269,7 +272,7 @@ typedef struct Ast_Func_Param
 typedef struct Ast_Func_Decl_Stmt
 {
 	const Token* ident;
-	Array params;
+	Linked_Array params;
 	Ast_Expr* ret_type;
 	Ast_Stmt* body;
 } Ast_Func_Decl_Stmt;
