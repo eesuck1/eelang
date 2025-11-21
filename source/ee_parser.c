@@ -538,6 +538,37 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 		stmt = ee_alloc_stmt(pars, STMT_DEFER);
 		stmt->as_defer.stmt = ee_pars_stmt(pars);
 	} break;
+	case TOKEN_MATCH:
+	{
+		ee_pars_advance(pars, 1);
+
+		stmt = ee_alloc_stmt(pars, STMT_MATCH);
+		stmt->as_match.cases = ee_linked_array_new(EE_MATCH_BASE_CASES_SIZE, sizeof(Ast_Expr*), &pars->allocator);
+		stmt->as_match.stmts = ee_linked_array_new(EE_MATCH_BASE_CASES_SIZE, sizeof(Ast_Stmt*), &pars->allocator);
+		stmt->as_match.expr = ee_pars_expr(pars);
+
+		ee_pars_match_or_panic(pars, '{', "Expected '{' after 'match' control expression");
+
+		while (!ee_pars_match(pars, '}'))
+		{
+			ee_pars_match_or_panic(pars, TOKEN_CASE, "Expected 'case' keyword");
+
+			if (ee_pars_match(pars, TOKEN_DEFAULT))
+			{
+				ee_pars_match_or_panic(pars, ':', "Expected ':' after case expression");
+				stmt->as_match.def_stmt = ee_pars_stmt(pars);
+
+				continue;
+			}
+
+			Ast_Expr* case_expr = ee_pars_expr(pars);
+			ee_pars_match_or_panic(pars, ':', "Expected ':' after case expression");
+			Ast_Stmt* case_stmt = ee_pars_stmt(pars);
+
+			ee_linked_array_push(&stmt->as_match.cases, EE_RECAST_U8(case_expr));
+			ee_linked_array_push(&stmt->as_match.stmts, EE_RECAST_U8(case_stmt));
+		}
+	} break;
 	default:
 	{
 		Ast_Expr* expr = ee_pars_expr(pars);
@@ -956,6 +987,43 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 		ee_print_indent(indent);
 		EE_PRINTLN("DEFER: ");
 		ee_pars_debug_print_stmt(stmt->as_defer.stmt, indent + 1);
+	} break;
+	case STMT_MATCH:
+	{
+		ee_print_indent(indent);
+		EE_PRINTLN("MATCH: ");
+
+		ee_print_indent(indent);
+		EE_PRINTLN("CONTROL_EXPR: ");
+
+		ee_pars_debug_print_expr(stmt->as_match.expr, indent + 1);
+
+		ee_print_indent(indent);
+		EE_PRINTLN("CASES: ");
+
+		for (size_t i = 0; i < ee_linked_array_len(&stmt->as_match.cases); ++i)
+		{
+			Ast_Expr* case_expr = *(Ast_Expr**)ee_linked_array_at(&stmt->as_match.cases, i);
+			Ast_Stmt* case_stmt = *(Ast_Stmt**)ee_linked_array_at(&stmt->as_match.stmts, i);
+
+			ee_print_indent(indent + 1);
+			EE_PRINTLN("CASE: ");
+
+			ee_pars_debug_print_expr(case_expr, indent + 2);
+
+			ee_print_indent(indent + 1);
+			EE_PRINTLN("STMT: ");
+
+			ee_pars_debug_print_stmt(case_stmt, indent + 2);
+		}
+
+		if (stmt->as_match.def_stmt != NULL)
+		{
+			ee_print_indent(indent + 1);
+			EE_PRINTLN("DEFAULT: ");
+
+			ee_pars_debug_print_stmt(stmt->as_match.def_stmt, indent + 2);
+		}
 	} break;
 	default:
 	{

@@ -273,8 +273,13 @@ i32 ee_lex_process_id(Lexer* lex)
 		{
 			if (memcmp(str.buffer, "return", 6) == 0)
 				type = TOKEN_RETURN;
-			else if (memcmp(str.buffer, "struct", 5) == 0)
+			else if (memcmp(str.buffer, "struct", 6) == 0)
 				type = TOKEN_STRUCT;
+		} break;
+		case 7:
+		{
+			if (memcmp(str.buffer, "default", 7) == 0)
+				type = TOKEN_DEFAULT;
 		} break;
 		case 8:
 		{

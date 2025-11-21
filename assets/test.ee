@@ -1,4 +1,3 @@
-fn Point(comptime T: type) -> type
+match a * b
 {
-	return struct { x: T, y: T, z: T };
 }

@@ -7,12 +7,13 @@
 #include "ee_array.h"
 #include "ee_string.h"
 
-#define EE_AST_NODE_NULL           ((Ast_Node_Handle)-1)
-#define EE_EXPR_PREC_MIN           (-1024)
-#define EE_EXPR_PREC_MAX           (1024)
-#define EE_TYPE_BASE_SIZE          (8)
-#define EE_FUNC_ARGS_BASE_SIZE     (8)
-#define EE_BLOCK_BASE_STMT_SIZE    (16)
+#define EE_AST_NODE_NULL            ((Ast_Node_Handle)-1)
+#define EE_EXPR_PREC_MIN            (-1024)
+#define EE_EXPR_PREC_MAX            (1024)
+#define EE_TYPE_BASE_SIZE           (8)
+#define EE_FUNC_ARGS_BASE_SIZE      (8)
+#define EE_BLOCK_BASE_STMT_SIZE     (16)
+#define EE_MATCH_BASE_CASES_SIZE    (8)
 
 typedef enum Ast_Binop_Type
 {
@@ -287,6 +288,14 @@ typedef struct Ast_Defer_Stmt
 	Ast_Stmt* stmt;
 } Ast_Defer_Stmt;
 
+typedef struct Ast_Match_Stmt
+{
+	Ast_Expr* expr;
+	Ast_Stmt* def_stmt;
+	Linked_Array cases;
+	Linked_Array stmts;
+} Ast_Match_Stmt;
+
 typedef struct Ast_Stmt
 {
 	Ast_Stmt_Type type;
@@ -304,6 +313,7 @@ typedef struct Ast_Stmt
 		Ast_Func_Decl_Stmt as_func_decl;
 		Ast_Ret_Stmt as_ret;
 		Ast_Defer_Stmt as_defer;
+		Ast_Match_Stmt as_match;
 	};
 } Ast_Stmt;
 
