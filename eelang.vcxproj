@@ -135,6 +135,8 @@
     <ClCompile Include="source\ee_parser.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="assets\test.ee" />
+    <None Include="assets\test_import.ee" />
     <None Include="todo.md" />
   </ItemGroup>
   <ItemGroup>

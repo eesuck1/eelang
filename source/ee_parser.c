@@ -1,32 +1,5 @@
 #include "ee_parser.h"
 
-Parser ee_pars_new(const Lexer* lex, Logger log, const Allocator* allocator)
-{
-	Parser out = { 0 };
-
-	if (allocator == NULL)
-	{
-		out.allocator.alloc_fn = ee_default_alloc;
-		out.allocator.realloc_fn = ee_default_realloc;
-		out.allocator.free_fn = ee_default_free;
-		out.allocator.context = NULL;
-	}
-	else
-	{
-		memcpy(&out.allocator, allocator, sizeof(Allocator));
-	}
-
-	EE_ASSERT(out.allocator.alloc_fn != NULL, "Trying to set NULL alloc callback");
-	EE_ASSERT(out.allocator.realloc_fn != NULL, "Trying to set NULL realloc callback");
-	EE_ASSERT(out.allocator.free_fn != NULL, "Trying to set NULL free callback");
-
-	out.tokens = &lex->tokens;
-	out.pos = 0;
-	out.logger = log;
-
-	return out;
-}
-
 Ast_Expr* ee_alloc_expr(Parser* pars, Ast_Expr_Type type)
 {
 	Ast_Expr* out = pars->allocator.alloc_fn(&pars->allocator, sizeof(*out));
@@ -569,6 +542,17 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 			ee_linked_array_push(&stmt->as_match.stmts, EE_RECAST_U8(case_stmt));
 		}
 	} break;
+	case TOKEN_IMPORT:
+	{
+		ee_pars_advance(pars, 1);
+
+		stmt = ee_alloc_stmt(pars, STMT_IMPORT);
+		ee_pars_check_or_panic(pars, TOKEN_LIT_STR, "Expected string literal as module path");
+		stmt->as_import.token = ee_pars_eat(pars);
+
+		ee_pars_match_or_panic(pars, ';', "Expected ';' after 'import' statement");
+		ee_linked_array_push(&pars->imports, EE_RECAST_U8(stmt->as_import.token));
+	} break;
 	default:
 	{
 		Ast_Expr* expr = ee_pars_expr(pars);
@@ -1025,6 +1009,11 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 			ee_pars_debug_print_stmt(stmt->as_match.def_stmt, indent + 2);
 		}
 	} break;
+	case STMT_IMPORT:
+	{
+		ee_print_indent(indent);
+		EE_PRINTLN("IMPORT: %.*s", (i32)stmt->as_import.token->as_str_view.len, stmt->as_import.token->as_str_view.buffer);
+	} break;
 	default:
 	{
 		EE_ASSERT(0, "Invalid statement type for print (%d)", stmt->type);
@@ -1034,7 +1023,6 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 
 void ee_pars_debug_print_module(Ast_Module* mod)
 {
-
 	EE_PRINTLN("-- MODULE: '%s' --\n", mod->name);
 
 	for (size_t i = 0; i < ee_linked_array_len(&mod->root->as_block.stmts); ++i)
@@ -1046,20 +1034,136 @@ void ee_pars_debug_print_module(Ast_Module* mod)
 	}
 }
 
-Ast_Module* ee_pars_run(Parser* pars)
+void ee_pars_debug_print_project(Parse_Project* proj)
 {
-	Ast_Module* mod = pars->allocator.alloc_fn(&pars->allocator, sizeof(*mod));
+	EE_PRINTLN("-- PROJECT: --\n");
+
+	for (size_t i = 0; i < ee_linked_array_len(&proj->modules); ++i)
+	{
+		Ast_Module* mod = *(Ast_Module**)ee_linked_array_at(&proj->modules, i);
+		
+		ee_pars_debug_print_module(mod);
+		EE_PRINTLN("");
+	}
+}
+
+Ast_Module* ee_pars_file(const char* file_path, const Allocator* allocator)
+{
+	EE_ASSERT(file_path != NULL, "Trying to parse NULL file");
+
+	Parser pars = { 0 };
+
+	if (allocator == NULL)
+	{
+		pars.allocator.alloc_fn = ee_default_alloc;
+		pars.allocator.realloc_fn = ee_default_realloc;
+		pars.allocator.free_fn = ee_default_free;
+		pars.allocator.context = NULL;
+	}
+	else
+	{
+		memcpy(&pars.allocator, allocator, sizeof(Allocator));
+	}
+
+	EE_ASSERT(pars.allocator.alloc_fn != NULL, "Trying to set NULL alloc callback");
+	EE_ASSERT(pars.allocator.realloc_fn != NULL, "Trying to set NULL realloc callback");
+	EE_ASSERT(pars.allocator.free_fn != NULL, "Trying to set NULL free callback");
+
+	pars.lex = ee_lex_new_file(file_path, &pars.allocator);
+	pars.pos = 0;
+	pars.logger.lexer = &pars.lex;
+	pars.imports = ee_linked_array_new(EE_PARSE_QUEUE_BASE_SIZE, sizeof(Token*), &pars.allocator);
+
+	Ast_Module* mod = pars.allocator.alloc_fn(&pars.allocator, sizeof(*mod));
 	EE_ASSERT(mod != NULL, "Unable to allocate memory");
 
-	mod->name = NULL;
-	mod->root = ee_alloc_stmt(pars, STMT_BLOCK);
-	mod->root->as_block.stmts = ee_linked_array_new(32, sizeof(Ast_Stmt*), &pars->allocator);
+	ee_lex_tokenize(&pars.lex);
 
-	while (!ee_pars_match(pars, TOKEN_EOF))
+	size_t file_path_len = ee_strnlen(file_path, EE_MODULE_NAME_MAX_LEN);
+	memcpy(mod->name, file_path, file_path_len);
+	mod->name[file_path_len] = '\0';
+
+	mod->root = ee_alloc_stmt(&pars, STMT_BLOCK);
+	mod->root->as_block.stmts = ee_linked_array_new(32, sizeof(Ast_Stmt*), &pars.allocator);
+
+	while (!ee_pars_match(&pars, TOKEN_EOF))
 	{
-		Ast_Stmt* stmt = ee_pars_stmt(pars);
+		Ast_Stmt* stmt = ee_pars_stmt(&pars);
 		ee_linked_array_push(&mod->root->as_block.stmts, EE_RECAST_U8(stmt));
 	}
 
+	mod->imports = pars.imports;
+
 	return mod;
+}
+
+Parse_Project ee_pars_queue_run(const char* root_path, const Allocator* allocator)
+{
+	Parse_Project paq = { 0 };
+
+	if (allocator == NULL)
+	{
+		paq.allocator.alloc_fn = ee_default_alloc;
+		paq.allocator.realloc_fn = ee_default_realloc;
+		paq.allocator.free_fn = ee_default_free;
+		paq.allocator.context = NULL;
+	}
+	else
+	{
+		memcpy(&paq.allocator, allocator, sizeof(Allocator));
+	}
+
+	DictConfig config = ee_dict_config_new(&paq.allocator, ee_token_hash, ee_token_eq, ee_cpy_64, ee_cpy_64);
+	
+	paq.modules_map = ee_dict_new(EE_PARSE_QUEUE_BASE_SIZE, sizeof(Token*), sizeof(Ast_Module*), config);
+	paq.modules = ee_linked_array_new(EE_PARSE_QUEUE_BASE_SIZE, sizeof(Ast_Module*), &paq.allocator);
+	
+	Token root_token = { 0 };
+	size_t root_len = ee_strnlen(root_path, EE_MODULE_PATH_MAX_LEN);
+
+	root_token.as_str_view = ee_str_view_new(root_path, root_len - EE_MODULE_EXTENSION_LEN);
+	root_token.scratch = root_token.as_str_view;
+	root_token.type = TOKEN_INVALID;
+
+	Token* root_token_ptr = &root_token;
+
+	Linked_Array queue = ee_linked_array_new(EE_PARSE_QUEUE_BASE_SIZE, sizeof(Token*), &paq.allocator);
+	ee_linked_array_push(&queue, EE_RECAST_U8(root_token_ptr));
+
+	char file_buffer[EE_MODULE_PATH_MAX_LEN] = { 0 };
+
+	while (ee_array_len(&queue) > 0)
+	{
+		const Token* top = NULL;
+		ee_linked_array_pop(&queue, EE_RECAST_U8(top));
+
+		if (!ee_dict_contains(&paq.modules_map, EE_RECAST_U8(top)))
+		{
+			EE_ASSERT(top->as_str_view.len < EE_MODULE_PATH_MAX_LEN - EE_MODULE_EXTENSION_LEN - 1, 
+				"Module path length (%zu) bigger that the maximum capacity (%d)",
+				top->as_str_view.len, EE_MODULE_PATH_MAX_LEN - EE_MODULE_EXTENSION_LEN - 1);
+
+			memcpy(file_buffer, top->as_str_view.buffer, top->as_str_view.len);
+
+			file_buffer[top->as_str_view.len + 0] = '.';
+			file_buffer[top->as_str_view.len + 1] = 'e';
+			file_buffer[top->as_str_view.len + 2] = 'e';
+			file_buffer[top->as_str_view.len + 3] = '\0';
+
+			Ast_Module* mod = ee_pars_file(file_buffer, &paq.allocator);
+
+			ee_linked_array_push(&paq.modules, EE_RECAST_U8(mod));
+			ee_dict_set(&paq.modules_map, EE_RECAST_U8(top), EE_RECAST_U8(mod));
+
+			for (size_t i = 0; i < ee_linked_array_len(&mod->imports); ++i)
+			{
+				const Token* token = *(const Token**)ee_linked_array_at(&mod->imports, i);
+				ee_linked_array_push(&queue, EE_RECAST_U8(token));
+			}
+		}
+	}
+
+	//ee_linked_array_free(&queue);
+
+	return paq;
 }

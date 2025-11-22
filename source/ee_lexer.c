@@ -275,6 +275,8 @@ i32 ee_lex_process_id(Lexer* lex)
 				type = TOKEN_RETURN;
 			else if (memcmp(str.buffer, "struct", 6) == 0)
 				type = TOKEN_STRUCT;
+			else if (memcmp(str.buffer, "import", 6) == 0)
+				type = TOKEN_IMPORT;
 		} break;
 		case 7:
 		{

@@ -6,6 +6,7 @@
 
 #include "ee_array.h"
 #include "ee_string.h"
+#include "ee_dict.h"
 
 #define EE_AST_NODE_NULL            ((Ast_Node_Handle)-1)
 #define EE_EXPR_PREC_MIN            (-1024)
@@ -14,6 +15,10 @@
 #define EE_FUNC_ARGS_BASE_SIZE      (8)
 #define EE_BLOCK_BASE_STMT_SIZE     (16)
 #define EE_MATCH_BASE_CASES_SIZE    (8)
+#define EE_MODULE_NAME_MAX_LEN      (256)
+#define EE_MODULE_PATH_MAX_LEN      (4096)
+#define EE_PARSE_QUEUE_BASE_SIZE    (16)
+#define EE_MODULE_EXTENSION_LEN     (3)
 
 typedef enum Ast_Binop_Type
 {
@@ -83,6 +88,7 @@ typedef enum Ast_Stmt_Type
 	STMT_BREAK     = 10,
 	STMT_CONTINUE  = 11,
 	STMT_DEFER     = 12,
+	STMT_IMPORT    = 13,
 } Ast_Stmt_Type;
 
 typedef enum Ast_Type_Expr_Flag
@@ -296,6 +302,11 @@ typedef struct Ast_Match_Stmt
 	Linked_Array stmts;
 } Ast_Match_Stmt;
 
+typedef struct Ast_Import_Stmt
+{
+	const Token* token;
+} Ast_Import_Stmt;
+
 typedef struct Ast_Stmt
 {
 	Ast_Stmt_Type type;
@@ -314,22 +325,52 @@ typedef struct Ast_Stmt
 		Ast_Ret_Stmt as_ret;
 		Ast_Defer_Stmt as_defer;
 		Ast_Match_Stmt as_match;
+		Ast_Import_Stmt as_import;
 	};
 } Ast_Stmt;
 
 typedef struct Ast_Module
 {
-	const char* name;
+	char name[EE_MODULE_NAME_MAX_LEN];
 	Ast_Stmt* root;
+	Linked_Array imports;
 } Ast_Module;
 
 typedef struct Parser
 {
 	size_t pos;
-	Allocator allocator;
 	Logger logger;
-	const Array* tokens;
+	Lexer lex;
+	Linked_Array imports;
+	Allocator allocator;
 } Parser;
+
+typedef struct Parse_Project
+{
+	Dict modules_map;
+	Linked_Array modules;
+	Allocator allocator;
+} Parse_Project;
+
+Ast_Expr* ee_alloc_expr(Parser* pars, Ast_Expr_Type type);
+Ast_Stmt* ee_alloc_stmt(Parser* pars, Ast_Stmt_Type type);
+
+Ast_Expr* ee_pars_primary(Parser* pars);
+Ast_Expr* ee_pars_atom(Parser* pars);
+Ast_Expr* ee_pars_postfix(Parser* pars, Ast_Expr* atom);
+Ast_Expr* ee_pars_expr_1(Parser* pars, Ast_Expr* lhs, Ast_Precedence min_prec);
+Ast_Expr* ee_pars_expr(Parser* pars);
+
+Ast_Stmt* ee_pars_stmt(Parser* pars);
+
+void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent);
+void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent);
+void ee_pars_debug_print_module(Ast_Module* mod);
+void ee_pars_debug_print_project(Parse_Project* proj);
+
+
+Ast_Module* ee_pars_file(const char* file_path, const Allocator* allocator);
+Parse_Project ee_pars_queue_run(const char* root_path, const Allocator* allocator);
 
 EE_INLINE void ee_stmt_set_flag(Ast_Stmt* stmt, Ast_Flag flag)
 {
@@ -373,7 +414,7 @@ EE_INLINE i32 ee_op_prec(Ast_Binop_Type op)
 
 EE_INLINE i32 ee_token_is_lit(const Token* token)
 {
-	return (token->type == TOKEN_LIT_INT) || (token->type == TOKEN_LIT_FLOAT) || (token->type == TOKEN_LIT_STR) || 
+	return (token->type == TOKEN_LIT_INT) || (token->type == TOKEN_LIT_FLOAT) || (token->type == TOKEN_LIT_STR) ||
 		(token->type == TOKEN_TRUE) || (token->type == TOKEN_FALSE);
 }
 
@@ -415,34 +456,34 @@ EE_INLINE Ast_Unop_Type ee_token_match_unop(const Token* token)
 
 EE_INLINE void ee_pars_advance(Parser* pars, size_t count)
 {
-	EE_ASSERT(pars->pos + count <= ee_array_len(pars->tokens), "Trying to advance beyond stream buffer (%zu + %zu >= %zu)", pars->pos, count, ee_array_len(pars->tokens));
-	
+	EE_ASSERT(pars->pos + count <= ee_array_len(&pars->lex.tokens), "Trying to advance beyond stream buffer (%zu + %zu >= %zu)", pars->pos, count, ee_array_len(&pars->lex.tokens));
+
 	pars->pos += count;
 }
 
 EE_INLINE const Token* ee_pars_peek(const Parser* pars)
 {
-	if (pars->pos >= ee_array_len(pars->tokens))
+	if (pars->pos >= ee_array_len(&pars->lex.tokens))
 	{
 		return &_s_token_null;
 	}
 
-	return (const Token*)ee_array_at(pars->tokens, pars->pos);
+	return (const Token*)ee_array_at(&pars->lex.tokens, pars->pos);
 }
 
 EE_INLINE const Token* ee_pars_peek_next(const Parser* pars, size_t count)
 {
-	if (pars->pos + count >= ee_array_len(pars->tokens))
+	if (pars->pos + count >= ee_array_len(&pars->lex.tokens))
 	{
 		return &_s_token_null;
 	}
 
-	return (const Token*)ee_array_at(pars->tokens, pars->pos + count);
+	return (const Token*)ee_array_at(&pars->lex.tokens, pars->pos + count);
 }
 
 EE_INLINE const Token* ee_pars_eat(Parser* pars)
 {
-	return (const Token*)ee_array_at(pars->tokens, pars->pos++);
+	return (const Token*)ee_array_at(&pars->lex.tokens, pars->pos++);
 }
 
 EE_INLINE i32 ee_pars_match_or_panic(Parser* pars, Token_Type pattern, const char* message, ...)
@@ -534,22 +575,35 @@ EE_INLINE void ee_println_with_indent(size_t indent, const char* fmt, ...)
 	va_end(args);
 }
 
-Ast_Expr* ee_alloc_expr(Parser* pars, Ast_Expr_Type type);
-Ast_Stmt* ee_alloc_stmt(Parser* pars, Ast_Stmt_Type type);
+EE_INLINE i32 ee_streq(const u8* a, const u8* b, size_t len)
+{
+	EE_UNUSED(len);
 
-Ast_Expr* ee_pars_primary(Parser* pars);
-Ast_Expr* ee_pars_atom(Parser* pars);
-Ast_Expr* ee_pars_postfix(Parser* pars, Ast_Expr* atom);
-Ast_Expr* ee_pars_expr_1(Parser* pars, Ast_Expr* lhs, Ast_Precedence min_prec);
-Ast_Expr* ee_pars_expr(Parser* pars);
+	return strcmp((const char*)a, (const char*)b) == 0;
+}
 
-Ast_Stmt* ee_pars_stmt(Parser* pars);
+EE_INLINE i32 ee_token_eq(const u8* a, const u8* b, size_t len)
+{
+	EE_UNUSED(len);
 
-void ee_pars_debug_print_expr(Ast_Expr* expr, size_t indent);
-void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent);
-void ee_pars_debug_print_module(Ast_Module* mod);
+	const Token* tok_a = *(const Token**)a;
+	const Token* tok_b = *(const Token**)b;
 
-Parser ee_pars_new(const Lexer* lex, Logger log, const Allocator* allocator);
-Ast_Module* ee_pars_run(Parser* pars);
+	if (tok_a->scratch.len != tok_b->scratch.len)
+	{
+		return EE_FALSE;
+	}
+
+	return memcmp(tok_a->scratch.buffer, tok_b->scratch.buffer, tok_a->scratch.len) == 0;
+}
+
+EE_INLINE u64 ee_token_hash(const u8* a, size_t len)
+{
+	EE_UNUSED(len);
+
+	const Token* tok_a = *(const Token**)a;
+
+	return ee_hash_fast(tok_a->scratch.buffer, tok_a->scratch.len);
+}
 
 #endif // EE_PARSER_H

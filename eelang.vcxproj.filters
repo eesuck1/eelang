@@ -30,6 +30,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="todo.md" />
+    <None Include="assets\test_import.ee" />
+    <None Include="assets\test.ee" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\ee_parser.h">

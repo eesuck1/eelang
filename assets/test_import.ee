@@ -1,0 +1,3 @@
+import "assets/test";
+
+let a = 1 + 2;

@@ -91,6 +91,7 @@ typedef enum Token_Type
     TOKEN_COMPTIME      = 302,
     TOKEN_DEFER         = 303,
     TOKEN_DEFAULT       = 304,
+    TOKEN_IMPORT        = 305,
 
     TOKEN_INVALID       = -1024
 } Token_Type;
