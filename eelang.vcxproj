@@ -130,6 +130,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.c" />
+    <ClCompile Include="source\ee_ir.c" />
     <ClCompile Include="source\ee_lexer.c" />
     <ClCompile Include="source\ee_log.c" />
     <ClCompile Include="source\ee_parser.c" />
@@ -140,6 +141,7 @@
     <None Include="todo.md" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="source\ee_ir.h" />
     <ClInclude Include="source\ee_lexer.h" />
     <ClInclude Include="source\ee_log.h" />
     <ClInclude Include="source\ee_parser.h" />
