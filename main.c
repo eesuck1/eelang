@@ -21,12 +21,15 @@ int main()
 	VM_Program prog = ee_vm_prog_new(32, 32, 1024, &allocator);
 
 	VM_Index c_0 = ee_vm_prog_push_const(&prog, (VM_Val) { .as_u64 = 10 });
-	VM_Index c_1 = ee_vm_prog_push_const(&prog, (VM_Val) { .as_u64 = 13 });
+	VM_Index c_1 = ee_vm_prog_push_const(&prog, (VM_Val) { .as_u64 = 1 });
+	VM_Index c_2 = ee_vm_prog_push_const(&prog, (VM_Val) { .as_u64 = 4 });
 
-	ee_vm_prog_push_op_1(&prog, OP_ALLOCA, 3);
+	ee_vm_prog_push_op_1(&prog, OP_ALLOCA, 2);
 	ee_vm_prog_push_op_2(&prog, OP_MOVI, 0, c_0);
 	ee_vm_prog_push_op_2(&prog, OP_MOVI, 1, c_1);
-	ee_vm_prog_push_op_3(&prog, OP_MUL, 2, 1, 0);
+	ee_vm_prog_push_op_3(&prog, OP_SLT, 3, 2, 0);
+	ee_vm_prog_push_op_3(&prog, OP_ADD, 2, 2, 1);
+	ee_vm_prog_push_op_2(&prog, OP_JNZ, 3, 3);
 	ee_vm_prog_push_op_0(&prog, OP_HALT);
 
 	ee_vm_prog_debug_print(&prog);

@@ -28,21 +28,53 @@ typedef enum VM_Op_Code
 {
 	OP_HALT = 0,
 
-	OP_ALLOCA,   // reg_count, 0, 0
-	OP_MOV,      // reg_dest, reg_src,  0
-	OP_MOVI,     // reg_dest, cnst_src, 0
+	OP_ALLOCA,  
+	OP_MOV,     
+	OP_MOVI,    
 
-	OP_ADD,      // reg_dest, reg_src_2, reg_src_1
-	OP_SUB,      // reg_dest, reg_src_2, reg_src_1
-	OP_MUL,      // reg_dest, reg_src_2, reg_src_1
-	OP_IDIV,     // reg_dest, reg_src_2, reg_src_1
-		         // reg_dest, reg_src_2, reg_src_1
-	OP_OR,       // reg_dest, reg_src_2, reg_src_1
-	OP_AND,      // reg_dest, reg_src_2, reg_src_1
-	OP_XOR,      // reg_dest, reg_src_2, reg_src_1
-	OP_SHL,      // reg_dest, reg_src_2, reg_src_1
-	OP_SHR,      // reg_dest, reg_src_2, reg_src_1
+	OP_ADD,     
+	OP_SUB,     
+	OP_MUL,     
+	OP_IDIV,
+	OP_UDIV,
+	OP_FDIV,
+	OP_DDIV,
+		        
+	OP_OR,      
+	OP_AND,     
+	OP_XOR,     
+	OP_SHL,     
+	OP_SHR,     
+
+	OP_JMP,
+	OP_JIZ,
+	OP_JNZ,
+
+	OP_SEQ,
+	OP_SNEQ,
+	OP_SLEQ,
+	OP_SGEQ,
+	OP_SLT,
+	OP_SGT,
+
+	OP_SEQU,
+	OP_SNEQU,
+	OP_SLEQU,
+	OP_SGEQU,
+	OP_SLTU,
+	OP_SGTU,
 	
+	OP_ITOF,
+	OP_FTOI,
+	OP_ITOD,
+	OP_DTOI,
+	OP_SEXT8,
+	OP_SEXT16,
+	OP_SEXT32,
+
+	OP_CALL,
+	OP_RET,
+
 	OP_COUNT
 } VM_Op_Code;
 
@@ -88,6 +120,7 @@ typedef struct Virtual_Machine
 	VM_Index sp;
 	VM_Index bp;
 	Bool halt;
+	size_t ticks;
 
 	Linked_Array stack;   // VM_Val
 	VM_Heap heap;
