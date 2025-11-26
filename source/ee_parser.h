@@ -108,22 +108,133 @@ typedef i32 Ast_Custom_Type_Id;
 typedef i32 Bool;
 typedef size_t Usize;
 
-// Binop statics
-static const Ast_Precedence _s_op_binop_prec_table[BINOP_COUNT] = { 11, 11, 12, 12, 12, 4, 3, 7, 5, 6, 8, 8, 9, 9, 9, 9, 10, 10, 1, 0 };
-static const char* _s_op_binop_name_table[BINOP_COUNT] = { "+", "-", "*", "/", "%", "&&", "||", "&", "|", "^", "==", "!=", "<=", ">=", "<", ">", "<<", ">>", "as", ".." };
-static const Token_Type _s_op_binop_token_type_table[BINOP_COUNT] = { '+', '-', '*', '/', '%', TOKEN_AND, TOKEN_OR, '&', '|', '^', TOKEN_EQUAL_EQUAL, TOKEN_NOT_EQUAL, 
-	TOKEN_LESS_EQUAL, TOKEN_GREATER_EQUAL, '<', '>', TOKEN_SHIFT_LEFT, TOKEN_SHIFT_RIGHT, TOKEN_AS, TOKEN_RANGE };
-static const i32 _s_op_binop_name_len_table[BINOP_COUNT] = { 1, 1, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2 };
+static const Ast_Precedence _s_op_binop_prec_table[BINOP_COUNT] = {
+    [BINOP_PLUS]          = 11,
+    [BINOP_MINUS]         = 11,
+    [BINOP_MUL]           = 12,
+    [BINOP_DIV]           = 12,
+    [BINOP_MOD]           = 12,
+    [BINOP_AND]           = 4,
+    [BINOP_OR]            = 3,
+    [BINOP_BW_AND]        = 7,
+    [BINOP_BW_OR]         = 5,
+    [BINOP_BW_XOR]        = 6,
+    [BINOP_EQUAL]         = 8,
+    [BINOP_NOT_EQUAL]     = 8,
+    [BINOP_LESS_EQUAL]    = 9,
+    [BINOP_GREATER_EQUAL] = 9,
+    [BINOP_LESS]          = 9,
+    [BINOP_GREATER]       = 9,
+    [BINOP_SHIFT_LEFT]    = 10,
+    [BINOP_SHIFT_RIGHT]   = 10,
+    [BINOP_CAST]          = 13,
+    [BINOP_RANGE]         = 0,
+};
 
-// Unop statics
-static const Ast_Precedence _s_op_unop_prec_table[UNOP_COUNT] = { 13, 13, 13, 13, 13, 13 };
-static const char* _s_op_unop_name_table[UNOP_COUNT] = { "!", "*", "&", "~", "+", "-", };
-static const i32 _s_op_unop_name_len_table[UNOP_COUNT] = { 1, 1, 1, 1, 1, 1 };
-static const Token_Type _s_op_unop_token_type_table[UNOP_COUNT] = { '!', '*', '&', '~', '+', '-' };
+static const char* _s_op_binop_name_table[BINOP_COUNT] = {
+    [BINOP_PLUS]          = "+",
+    [BINOP_MINUS]         = "-",
+    [BINOP_MUL]           = "*",
+    [BINOP_DIV]           = "/",
+    [BINOP_MOD]           = "%",
+    [BINOP_AND]           = "&&",
+    [BINOP_OR]            = "||",
+    [BINOP_BW_AND]        = "&",
+    [BINOP_BW_OR]         = "|",
+    [BINOP_BW_XOR]        = "^",
+    [BINOP_EQUAL]         = "==",
+    [BINOP_NOT_EQUAL]     = "!=",
+    [BINOP_LESS_EQUAL]    = "<=",
+    [BINOP_GREATER_EQUAL] = ">=",
+    [BINOP_LESS]          = "<",
+    [BINOP_GREATER]       = ">",
+    [BINOP_SHIFT_LEFT]    = "<<",
+    [BINOP_SHIFT_RIGHT]   = ">>",
+    [BINOP_CAST]          = "as",
+    [BINOP_RANGE]         = "..",
+};
 
-static const Str_View _s_str_view_null = { 0 };
-static const Token _s_usize_token = { .type = TOKEN_IDENTIFIER, 0, 0, 0, 0, .scratch = { "usize", 5 } };
+static const Token_Type _s_op_binop_token_type_table[BINOP_COUNT] = {
+    [BINOP_PLUS]          = '+',
+    [BINOP_MINUS]         = '-',
+    [BINOP_MUL]           = '*',
+    [BINOP_DIV]           = '/',
+    [BINOP_MOD]           = '%',
+    [BINOP_AND]           = TOKEN_AND,
+    [BINOP_OR]            = TOKEN_OR,
+    [BINOP_BW_AND]        = '&',
+    [BINOP_BW_OR]         = '|',
+    [BINOP_BW_XOR]        = '^',
+    [BINOP_EQUAL]         = TOKEN_EQUAL_EQUAL,
+    [BINOP_NOT_EQUAL]     = TOKEN_NOT_EQUAL,
+    [BINOP_LESS_EQUAL]    = TOKEN_LESS_EQUAL,
+    [BINOP_GREATER_EQUAL] = TOKEN_GREATER_EQUAL,
+    [BINOP_LESS]          = '<',
+    [BINOP_GREATER]       = '>',
+    [BINOP_SHIFT_LEFT]    = TOKEN_SHIFT_LEFT,
+    [BINOP_SHIFT_RIGHT]   = TOKEN_SHIFT_RIGHT,
+    [BINOP_CAST]          = TOKEN_AS,
+    [BINOP_RANGE]         = TOKEN_RANGE,
+};
 
+static const i32 _s_op_binop_name_len_table[BINOP_COUNT] = {
+    [BINOP_PLUS]          = 1,
+    [BINOP_MINUS]         = 1,
+    [BINOP_MUL]           = 1,
+    [BINOP_DIV]           = 1,
+    [BINOP_MOD]           = 1,
+    [BINOP_AND]           = 2,
+    [BINOP_OR]            = 2,
+    [BINOP_BW_AND]        = 1,
+    [BINOP_BW_OR]         = 1,
+    [BINOP_BW_XOR]        = 1,
+    [BINOP_EQUAL]         = 2,
+    [BINOP_NOT_EQUAL]     = 2,
+    [BINOP_LESS_EQUAL]    = 2,
+    [BINOP_GREATER_EQUAL] = 2,
+    [BINOP_LESS]          = 1,
+    [BINOP_GREATER]       = 1,
+    [BINOP_SHIFT_LEFT]    = 2,
+    [BINOP_SHIFT_RIGHT]   = 2,
+    [BINOP_CAST]          = 2,
+    [BINOP_RANGE]         = 2,
+};
+
+static const Ast_Precedence _s_op_unop_prec_table[UNOP_COUNT] = {
+    [UNOP_NOT]    = 13,
+    [UNOP_DEREF]  = 13,
+    [UNOP_PTR]    = 13,
+    [UNOP_BW_NOT] = 13,
+    [UNOP_PLUS]   = 13,
+    [UNOP_MINUS]  = 13,
+};
+
+static const char* _s_op_unop_name_table[UNOP_COUNT] = {
+    [UNOP_NOT]    = "!",
+    [UNOP_DEREF]  = "*",
+    [UNOP_PTR]    = "&",
+    [UNOP_BW_NOT] = "~",
+    [UNOP_PLUS]   = "+",
+    [UNOP_MINUS]  = "-",
+};
+
+static const i32 _s_op_unop_name_len_table[UNOP_COUNT] = {
+    [UNOP_NOT]    = 1,
+    [UNOP_DEREF]  = 1,
+    [UNOP_PTR]    = 1,
+    [UNOP_BW_NOT] = 1,
+    [UNOP_PLUS]   = 1,
+    [UNOP_MINUS]  = 1,
+};
+
+static const Token_Type _s_op_unop_token_type_table[UNOP_COUNT] = {
+    [UNOP_NOT]    = '!',
+    [UNOP_DEREF]  = '*',
+    [UNOP_PTR]    = '&',
+    [UNOP_BW_NOT] = '~',
+    [UNOP_PLUS]   = '+',
+    [UNOP_MINUS]  = '-',
+};
 typedef struct Ast_Expr Ast_Expr;
 typedef struct Ast_Stmt Ast_Stmt;
 
