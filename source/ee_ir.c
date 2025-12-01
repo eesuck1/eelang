@@ -2,36 +2,89 @@
 
 static const char* _s_op_names[OP_COUNT] = {
 	[OP_HALT]   = "OP_HALT",
+
 	[OP_ALLOCA] = "OP_ALLOCA",
 	[OP_MOV]    = "OP_MOV",
 	[OP_MOVI]   = "OP_MOVI",
+
 	[OP_ADD]    = "OP_ADD",
+	[OP_ADDI]   = "OP_ADDI",
 	[OP_SUB]    = "OP_SUB",
+	[OP_SUBI]   = "OP_SUBI",
 	[OP_MUL]    = "OP_MUL",
+	[OP_MULI]   = "OP_MULI",
 	[OP_IDIV]   = "OP_IDIV",
+	[OP_IDIVI]  = "OP_IDIVI",
 	[OP_UDIV]   = "OP_UDIV",
+	[OP_UDIVI]  = "OP_UDIVI",
+	[OP_IMOD]   = "OP_IMOD",
+	[OP_IMODI]  = "OP_IMODI",
+	[OP_UMOD]   = "OP_UMOD",
+	[OP_UMODI]  = "OP_UMODI",
+
+	[OP_FADD]   = "OP_FADD",
+	[OP_FADDI]  = "OP_FADDI",
+	[OP_FSUB]   = "OP_FSUB",
+	[OP_FSUBI]  = "OP_FSUBI",
+	[OP_FMUL]   = "OP_FMUL",
+	[OP_FMULI]  = "OP_FMULI",
 	[OP_FDIV]   = "OP_FDIV",
+	[OP_FDIVI]  = "OP_FDIVI",
+
+	[OP_DADD]   = "OP_DADD",
+	[OP_DADDI]  = "OP_DADDI",
+	[OP_DSUB]   = "OP_DSUB",
+	[OP_DSUBI]  = "OP_DSUBI",
+	[OP_DMUL]   = "OP_DMUL",
+	[OP_DMULI]  = "OP_DMULI",
 	[OP_DDIV]   = "OP_DDIV",
+	[OP_DDIVI]  = "OP_DDIVI",
+
+	[OP_NOT]    = "OP_NOT",
 	[OP_OR]     = "OP_OR",
+	[OP_ORI]    = "OP_ORI",
 	[OP_AND]    = "OP_AND",
+	[OP_ANDI]   = "OP_ANDI",
 	[OP_XOR]    = "OP_XOR",
+	[OP_XORI]   = "OP_XORI",
 	[OP_SHL]    = "OP_SHL",
+	[OP_SHLI]   = "OP_SHLI",
 	[OP_SHR]    = "OP_SHR",
+	[OP_SHRI]   = "OP_SHRI",
+	[OP_SAR]    = "OP_SAR",
+	[OP_SARI]   = "OP_SARI",
+	[OP_SAL]    = "OP_SAL",
+	[OP_SALI]   = "OP_SALI",
+
 	[OP_JMP]    = "OP_JMP",
+	[OP_JMPI]   = "OP_JMPI",
 	[OP_JIZ]    = "OP_JIZ",
+	[OP_JIZI]   = "OP_JIZI",
 	[OP_JNZ]    = "OP_JNZ",
+	[OP_JNZI]   = "OP_JNZI",
+
 	[OP_SEQ]    = "OP_SEQ",
+	[OP_SEQI]   = "OP_SEQI",
 	[OP_SNEQ]   = "OP_SNEQ",
+	[OP_SNEQI]  = "OP_SNEQI",
 	[OP_SLEQ]   = "OP_SLEQ",
+	[OP_SLEQI]  = "OP_SLEQI",
 	[OP_SGEQ]   = "OP_SGEQ",
+	[OP_SGEQI]  = "OP_SGEQI",
 	[OP_SLT]    = "OP_SLT",
+	[OP_SLTI]   = "OP_SLTI",
 	[OP_SGT]    = "OP_SGT",
-	[OP_SEQU]   = "OP_SEQU",
-	[OP_SNEQU]  = "OP_SNEQU",
+	[OP_SGTI]   = "OP_SGTI",
+
 	[OP_SLEQU]  = "OP_SLEQU",
+	[OP_SLEQUI] = "OP_SLEQUI",
 	[OP_SGEQU]  = "OP_SGEQU",
+	[OP_SGEQUI] = "OP_SGEQUI",
 	[OP_SLTU]   = "OP_SLTU",
+	[OP_SLTUI]  = "OP_SLTUI",
 	[OP_SGTU]   = "OP_SGTU",
+	[OP_SGTUI]  = "OP_SGTUI",
+
 	[OP_ITOF]   = "OP_ITOF",
 	[OP_FTOI]   = "OP_FTOI",
 	[OP_ITOD]   = "OP_ITOD",
@@ -39,6 +92,7 @@ static const char* _s_op_names[OP_COUNT] = {
 	[OP_SEXT8]  = "OP_SEXT8",
 	[OP_SEXT16] = "OP_SEXT16",
 	[OP_SEXT32] = "OP_SEXT32",
+
 	[OP_CALL]   = "OP_CALL",
 	[OP_RET]    = "OP_RET",
 };
@@ -62,7 +116,7 @@ VM_Program ee_vm_prog_new(size_t ops_count, size_t consts_count, size_t data_byt
 	out.ops = ee_linked_array_new(ops_count, sizeof(VM_Op), &out.allocator);
 	out.consts = ee_linked_array_new(consts_count, sizeof(VM_Val), &out.allocator);
 	out.data = ee_linked_arena_new(data_bytes, EE_NO_REWIND, &out.allocator);
-	out.symbols = ee_dict_def_m(128, VM_Index, Token*);
+	out.symbols = ee_dict_def_m(128, VM_Word, Token*);
 
 	return out;
 }
@@ -74,7 +128,19 @@ VM_Op ee_vm_prog_get_op(VM_Program* prog, size_t i)
 	return op;
 }
 
-void ee_vm_prog_push_op_3(VM_Program* prog, VM_Op_Code code, VM_Index r_d, VM_Index r_1, VM_Index r_0)
+VM_Word ee_vm_prog_make_const(VM_Program* prog, i64 val)
+{
+	VM_Word out = EE_VM_INVALID_REG;
+
+	if (val >= EE_VM_IMM_MAX || val <= EE_VM_IMM_MIN)
+		out = ee_vm_prog_push_const(prog, (VM_Val) { .as_i64 = val });
+	else
+		out = val | EE_VM_IMM_FLAG;
+
+	return out;
+}
+
+void ee_vm_prog_push_op(VM_Program* prog, VM_Op_Code code, VM_Word r_d, VM_Word r_1, VM_Word r_0)
 {
 	VM_Op op = { 0 };
 
@@ -86,51 +152,27 @@ void ee_vm_prog_push_op_3(VM_Program* prog, VM_Op_Code code, VM_Index r_d, VM_In
 	ee_linked_array_push(&prog->ops, EE_RECAST_U8(op));
 }
 
-void ee_vm_prog_push_op_2(VM_Program* prog, VM_Op_Code code, VM_Index r_d, VM_Index r_1)
-{
-	VM_Op op = { 0 };
-
-	op.code = code;
-	op.r_d = r_d;
-	op.r_1 = r_1;
-	op.r_0 = EE_VM_INVALID_REG;
-
-	ee_linked_array_push(&prog->ops, EE_RECAST_U8(op));
-}
-
-void ee_vm_prog_push_op_1(VM_Program* prog, VM_Op_Code code, VM_Index r_d)
-{
-	VM_Op op = { 0 };
-
-	op.code = code;
-	op.r_d = r_d;
-	op.r_1 = EE_VM_INVALID_REG;
-	op.r_0 = EE_VM_INVALID_REG;
-
-	ee_linked_array_push(&prog->ops, EE_RECAST_U8(op));
-}
-
-void ee_vm_prog_push_op_0(VM_Program* prog, VM_Op_Code code)
-{
-	VM_Op op = { 0 };
-
-	op.code = code;
-	op.r_d = EE_VM_INVALID_REG;
-	op.r_1 = EE_VM_INVALID_REG;
-	op.r_0 = EE_VM_INVALID_REG;
-
-	ee_linked_array_push(&prog->ops, EE_RECAST_U8(op));
-}
-
-VM_Val ee_vm_prog_const_at(VM_Program* prog, VM_Index i)
+VM_Val ee_vm_prog_const_at(VM_Program* prog, VM_Word i)
 {
 	VM_Val out = *(VM_Val*)ee_linked_array_at(&prog->consts, i);
 	return out;
 }
 
-VM_Index ee_vm_prog_push_const(VM_Program* prog, VM_Val const_val)
+VM_Val ee_vm_prog_get_imm(VM_Program* prog, VM_Word val)
 {
-	VM_Index index = ee_linked_array_len(&prog->consts);
+	VM_Val out = { .as_u64 = 0 };
+
+	if (val & EE_VM_IMM_FLAG)
+		out.as_i64 = val & EE_VM_IMM_SIGN ? (i64)((i32)val) : val & EE_VM_IMM_MASK;
+	else
+		out = ee_vm_prog_const_at(prog, val & EE_VM_IMM_MASK);
+
+	return out;
+}
+
+VM_Word ee_vm_prog_push_const(VM_Program* prog, VM_Val const_val)
+{
+	VM_Word index = ee_linked_array_len(&prog->consts);
 	ee_linked_array_push(&prog->consts, EE_RECAST_U8(const_val));
 
 	return index;
@@ -153,19 +195,21 @@ Virtual_Machine ee_vm_new(size_t stack_size, size_t heap_size, const Allocator* 
 	}
 
 	out.stack = ee_linked_array_new(stack_size, sizeof(VM_Val), &out.allocator);
+	out.frames = ee_linked_array_new(EE_VM_CALL_FRAME_BASE_SIZE, sizeof(VM_Call_Frame), &out.allocator);
+	out.heap = ee_linked_arena_new(heap_size, EE_NO_REWIND, &out.allocator);
 	out.halt = EE_FALSE;
 	out.ticks = 0;
 
 	return out;
 }
 
-VM_Val ee_vm_stack_at(Virtual_Machine* vm, VM_Index i)
+VM_Val ee_vm_stack_at(Virtual_Machine* vm, VM_Word i)
 {
 	VM_Val out = *(VM_Val*)ee_linked_array_at(&vm->stack, (size_t)vm->bp + i);
 	return out;
 }
 
-void ee_vm_stack_set(Virtual_Machine* vm, VM_Index i, VM_Val val)
+void ee_vm_stack_set(Virtual_Machine* vm, VM_Word i, VM_Val val)
 {
 	VM_Val* out = (VM_Val*)ee_linked_array_at(&vm->stack, (size_t)vm->bp + i);
 	*out = val;
@@ -176,7 +220,9 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 	while (vm->ip < ee_linked_array_len(&prog->ops) && !vm->halt)
 	{
 		VM_Op op = ee_vm_prog_get_op(prog, vm->ip);
+
 		vm->ticks++;
+		vm->ip++;
 
 		switch (op.code)
 		{
@@ -184,14 +230,14 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 		{
 			// TODO(eesuck): add bulk alloc or bulk insert zero/none into linked array implementation
 			VM_Val none = { 0 };
-			VM_Val size = ee_vm_prog_const_at(prog, op.r_d);
+			VM_Val size = ee_vm_prog_get_imm(prog, op.r_d);
 
-			for (size_t i = 0; i < (VM_Index)size.as_u64; ++i)
+			for (size_t i = 0; i < (VM_Word)size.as_u64; ++i)
 			{
 				ee_linked_array_push(&vm->stack, EE_RECAST_U8(none));
 			}
 
-			vm->sp += (VM_Index)size.as_u64;
+			vm->sp += (VM_Word)size.as_u64;
 		} break;
 		case OP_MOV:
 		{
@@ -200,15 +246,22 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 		} break;
 		case OP_MOVI:
 		{
-			VM_Val src = ee_vm_prog_const_at(prog, op.r_1);
+			VM_Val src = ee_vm_prog_get_imm(prog, op.r_1);
 			ee_vm_stack_set(vm, op.r_d, src);
 		} break;
+
 		case OP_ADD:
 		{
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 + src_0.as_u64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_ADDI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 + src_0.as_u64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SUB:
@@ -216,7 +269,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 - src_0.as_u64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SUBI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 - src_0.as_u64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_MUL:
@@ -224,7 +283,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 * src_0.as_u64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_MULI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 * src_0.as_u64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_IDIV:
@@ -232,7 +297,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_i64 = src_1.as_i64 / src_0.as_i64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_IDIVI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 / src_0.as_i64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_UDIV:
@@ -240,7 +311,84 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 / src_0.as_u64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_UDIVI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 / src_0.as_u64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_IMOD:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 % src_0.as_i64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_IMODI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 % src_0.as_i64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_UMOD:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 % src_0.as_u64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_UMODI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 % src_0.as_u64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
 
+		case OP_FADD:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
+			VM_Val res = { .as_f32 = src_1.as_f32 + src_0.as_f32 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_FADDI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_f32 = src_1.as_f32 + src_0.as_f32 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_FSUB:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
+			VM_Val res = { .as_f32 = src_1.as_f32 - src_0.as_f32 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_FSUBI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_f32 = src_1.as_f32 - src_0.as_f32 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_FMUL:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
+			VM_Val res = { .as_f32 = src_1.as_f32 * src_0.as_f32 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_FMULI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_f32 = src_1.as_f32 * src_0.as_f32 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_FDIV:
@@ -248,7 +396,56 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_f32 = src_1.as_f32 / src_0.as_f32 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_FDIVI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_f32 = src_1.as_f32 / src_0.as_f32 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
 
+		case OP_DADD:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
+			VM_Val res = { .as_f64 = src_1.as_f64 + src_0.as_f64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_DADDI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_f64 = src_1.as_f64 + src_0.as_f64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_DSUB:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
+			VM_Val res = { .as_f64 = src_1.as_f64 - src_0.as_f64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_DSUBI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_f64 = src_1.as_f64 - src_0.as_f64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_DMUL:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
+			VM_Val res = { .as_f64 = src_1.as_f64 * src_0.as_f64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_DMULI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_f64 = src_1.as_f64 * src_0.as_f64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_DDIV:
@@ -256,7 +453,20 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_f64 = src_1.as_f64 / src_0.as_f64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_DDIVI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_f64 = src_1.as_f64 / src_0.as_f64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
 
+		case OP_NOT:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val res = { .as_u64 = ~src_1.as_u64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_OR:
@@ -264,7 +474,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 | src_0.as_u64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_ORI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 | src_0.as_u64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_AND:
@@ -272,7 +488,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 & src_0.as_u64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_ANDI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 & src_0.as_u64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_XOR:
@@ -280,7 +502,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 ^ src_0.as_u64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_XORI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 ^ src_0.as_u64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SHL:
@@ -288,7 +516,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 << src_0.as_u64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SHLI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 << src_0.as_u64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SHR:
@@ -296,42 +530,107 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 >> src_0.as_u64 };
-
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
+		case OP_SHRI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 >> src_0.as_u64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SAL:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 << src_0.as_i64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SALI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 << src_0.as_i64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SAR:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 >> src_0.as_i64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SARI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 >> src_0.as_i64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+
 		case OP_JMP:
 		{
-			vm->ip = op.r_d;
-			continue;
+			VM_Val dest = ee_vm_stack_at(vm, op.r_d);
+			vm->ip = (VM_Word)dest.as_u64;
+		} break;
+		case OP_JMPI:
+		{
+			VM_Val dest = ee_vm_prog_get_imm(prog, op.r_d);
+			vm->ip = (VM_Word)dest.as_u64;
 		} break;
 		case OP_JIZ:
 		{
-			VM_Index dest = op.r_d;
-			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val dest = ee_vm_stack_at(vm, op.r_d);
+			VM_Val cond = ee_vm_stack_at(vm, op.r_1);
 
-			if (src_1.as_u64 == 0)
+			if (cond.as_u64 == 0)
 			{
-				vm->ip = dest;
-				continue;
+				vm->ip = (VM_Word)dest.as_u64;
+			}
+		} break;
+		case OP_JIZI:
+		{
+			VM_Val dest = ee_vm_prog_get_imm(prog, op.r_d);
+			VM_Val cond = ee_vm_stack_at(vm, op.r_1);
+
+			if (cond.as_u64 == 0)
+			{
+				vm->ip = (VM_Word)dest.as_u64;
 			}
 		} break;
 		case OP_JNZ:
 		{
-			VM_Index dest = op.r_d;
-			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val dest = ee_vm_stack_at(vm, op.r_d);
+			VM_Val cond = ee_vm_stack_at(vm, op.r_1);
 
-			if (src_1.as_u64 != 0)
+			if (cond.as_u64 != 0)
 			{
-				vm->ip = dest;
-				continue;
+				vm->ip = (VM_Word)dest.as_u64;
 			}
 		} break;
+		case OP_JNZI:
+		{
+			VM_Val dest = ee_vm_prog_get_imm(prog, op.r_d);
+			VM_Val cond = ee_vm_stack_at(vm, op.r_1);
+
+			if (cond.as_u64 != 0)
+			{
+				vm->ip = (VM_Word)dest.as_u64;
+			}
+		} break;
+
 		case OP_SEQ:
 		{
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_i64 = src_1.as_i64 == src_0.as_i64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SEQI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 == src_0.as_i64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SNEQ:
@@ -339,7 +638,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_i64 = src_1.as_i64 != src_0.as_i64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SNEQI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 != src_0.as_i64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SLEQ:
@@ -347,7 +652,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_i64 = src_1.as_i64 <= src_0.as_i64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SLEQI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 <= src_0.as_i64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SGEQ:
@@ -355,7 +666,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_i64 = src_1.as_i64 >= src_0.as_i64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SGEQI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 >= src_0.as_i64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SLT:
@@ -363,7 +680,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_i64 = src_1.as_i64 < src_0.as_i64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SLTI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 < src_0.as_i64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SGT:
@@ -371,31 +694,28 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_i64 = src_1.as_i64 > src_0.as_i64 };
-
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
-		case OP_SEQU:
+		case OP_SGTI:
 		{
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
-			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
-			VM_Val res = { .as_u64 = src_1.as_u64 == src_0.as_u64 };
-
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_i64 = src_1.as_i64 > src_0.as_i64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
-		case OP_SNEQU:
-		{
-			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
-			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
-			VM_Val res = { .as_u64 = src_1.as_u64 != src_0.as_u64 };
 
-			ee_vm_stack_set(vm, op.r_d, res);
-		} break;
 		case OP_SLEQU:
 		{
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 <= src_0.as_u64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SLEQUI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 <= src_0.as_u64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SGEQU:
@@ -403,7 +723,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 >= src_0.as_u64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SGEQUI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 >= src_0.as_u64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SLTU:
@@ -411,7 +737,13 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 < src_0.as_u64 };
-
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+		case OP_SLTUI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 < src_0.as_u64 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SGTU:
@@ -419,67 +751,90 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val src_0 = ee_vm_stack_at(vm, op.r_0);
 			VM_Val res = { .as_u64 = src_1.as_u64 > src_0.as_u64 };
-
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
+		case OP_SGTUI:
+		{
+			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
+			VM_Val src_0 = ee_vm_prog_get_imm(prog, op.r_0);
+			VM_Val res = { .as_u64 = src_1.as_u64 > src_0.as_u64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+
 		case OP_ITOF:
 		{
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val res = { .as_f32 = (f32)src_1.as_u64 };
-
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_FTOI:
 		{
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val res = { .as_u64 = (u64)src_1.as_f32 };
-
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_ITOD:
 		{
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val res = { .as_f64 = (f64)src_1.as_u64 };
-
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_DTOI:
 		{
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val res = { .as_u64 = (u64)src_1.as_f64 };
-
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SEXT8:
 		{
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val res = { .as_i64 = (i64)src_1.as_i8 };
-
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SEXT16:
 		{
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val res = { .as_i64 = (i64)src_1.as_i16 };
-
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
 		case OP_SEXT32:
 		{
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
 			VM_Val res = { .as_i64 = (i64)src_1.as_i32 };
-
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
-		
-		case OP_HALT: 
+
+		case OP_CALL:
 		{
-			vm->halt = EE_TRUE; 
+			VM_Val op_id = ee_vm_stack_at(vm, op.r_d);
+			VM_Val op_argc = ee_vm_stack_at(vm, op.r_1);
+
+			VM_Call_Frame frame = { 0 };
+
+			frame.ip = vm->ip;
+			frame.bp = vm->bp;
+
+			vm->bp = vm->sp - (VM_Word)op_argc.as_u64;
+			vm->ip = (VM_Word)op_id.as_u64;
+
+			ee_linked_array_push(&vm->frames, EE_RECAST_U8(frame));
+		} break;
+		case OP_RET:
+		{
+			VM_Call_Frame frame = { 0 };
+
+			ee_linked_array_pop(&vm->frames, EE_RECAST_U8(frame));
+
+			vm->sp = vm->bp;
+			vm->ip = frame.ip;
+			vm->bp = frame.bp;
+		} break;
+		case OP_HALT:
+		{
+			vm->halt = EE_TRUE;
 		} break;
 		default: EE_ASSERT(0, "Unknown op code (%d)", op.code); break;
 		}
-
-		vm->ip++;
 	}
 }
 
@@ -489,7 +844,7 @@ void ee_vm_debug_print(const Virtual_Machine* vm)
 	EE_PRINTLN("STACK (%d):", vm->sp);
 	EE_PRINT("    ");
 
-	for (VM_Index i = 0; i < vm->sp; ++i)
+	for (VM_Word i = 0; i < vm->sp; ++i)
 	{
 		VM_Val val = *(VM_Val*)ee_linked_array_at(&vm->stack, i);
 
@@ -516,7 +871,7 @@ void ee_vm_prog_debug_print(const VM_Program* prog)
 	EE_PRINTLN("CONSTANTS (%zu):", consts_count);
 	EE_PRINT("    ");
 
-	for (VM_Index i = 0; i < consts_count; ++i)
+	for (VM_Word i = 0; i < consts_count; ++i)
 	{
 		VM_Val val = *(VM_Val*)ee_linked_array_at(&prog->consts, i);
 
@@ -545,7 +900,7 @@ void ee_vm_prog_debug_print(const VM_Program* prog)
 		EE_PRINT("    %04zu: ", i);
 
 		if (op->code < OP_COUNT && _s_op_names[op->code])
-			EE_PRINT("%-6s", _s_op_names[op->code]);
+			EE_PRINT("%-10s", _s_op_names[op->code]);
 		else
 			EE_PRINT("OP_%-3d", op->code);
 
