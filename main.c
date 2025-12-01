@@ -20,12 +20,10 @@ int main()
 	Virtual_Machine vm = ee_vm_new(1024, 1024, &allocator);
 	VM_Program prog = ee_vm_prog_new(32, 32, 1024, &allocator);
 
-	ee_vm_prog_push_op(&prog, OP_ALLOCA, ee_vm_prog_make_const(&prog, 4), EE_VM_INVALID_REG, EE_VM_INVALID_REG);
-	ee_vm_prog_push_op(&prog, OP_MOVI, 0, ee_vm_prog_make_const(&prog, 7), EE_VM_INVALID_REG);
+	ee_vm_prog_push_op(&prog, OP_ALLOCAI, ee_vm_prog_make_const(&prog, 2), EE_VM_INVALID_REG, EE_VM_INVALID_REG);
+	ee_vm_prog_push_op(&prog, OP_MOVI, 0, ee_vm_prog_make_const(&prog, 2), EE_VM_INVALID_REG);
 	ee_vm_prog_push_op(&prog, OP_MOVI, 1, ee_vm_prog_make_const(&prog, 2), EE_VM_INVALID_REG);
-	ee_vm_prog_push_op(&prog, OP_MOVI, 2, ee_vm_prog_make_const(&prog, 2), EE_VM_INVALID_REG);
-	ee_vm_prog_push_op(&prog, OP_MOVI, 3, ee_vm_prog_make_const(&prog, 2), EE_VM_INVALID_REG);
-	ee_vm_prog_push_op(&prog, OP_CALL, 0, 1, EE_VM_INVALID_REG);
+	ee_vm_prog_push_op(&prog, OP_CALLI, ee_vm_prog_make_const(&prog, 5), ee_vm_prog_make_const(&prog, 2), EE_VM_INVALID_REG);
 	ee_vm_prog_push_op(&prog, OP_HALT, EE_VM_INVALID_REG, EE_VM_INVALID_REG, EE_VM_INVALID_REG);
 	ee_vm_prog_push_op(&prog, OP_ADD, 0, 0, 1);
 	ee_vm_prog_push_op(&prog, OP_RET, EE_VM_INVALID_REG, EE_VM_INVALID_REG, EE_VM_INVALID_REG);

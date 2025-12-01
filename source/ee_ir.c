@@ -1,100 +1,127 @@
 #include "ee_ir.h"
 
 static const char* _s_op_names[OP_COUNT] = {
-	[OP_HALT]   = "OP_HALT",
+	[OP_HALT]     = "OP_HALT",
+				  
+	[OP_ALLOCAI]  = "OP_ALLOCAI",
+	[OP_MOV]      = "OP_MOV",
+	[OP_MOVI]     = "OP_MOVI",
+				  
+	[OP_ADD]      = "OP_ADD",
+	[OP_ADDI]     = "OP_ADDI",
+	[OP_SUB]      = "OP_SUB",
+	[OP_SUBI]     = "OP_SUBI",
+	[OP_MUL]      = "OP_MUL",
+	[OP_MULI]     = "OP_MULI",
+	[OP_IDIV]     = "OP_IDIV",
+	[OP_IDIVI]    = "OP_IDIVI",
+	[OP_UDIV]     = "OP_UDIV",
+	[OP_UDIVI]    = "OP_UDIVI",
+	[OP_IMOD]     = "OP_IMOD",
+	[OP_IMODI]    = "OP_IMODI",
+	[OP_UMOD]     = "OP_UMOD",
+	[OP_UMODI]    = "OP_UMODI",
+				  
+	[OP_FADD]     = "OP_FADD",
+	[OP_FADDI]    = "OP_FADDI",
+	[OP_FSUB]     = "OP_FSUB",
+	[OP_FSUBI]    = "OP_FSUBI",
+	[OP_FMUL]     = "OP_FMUL",
+	[OP_FMULI]    = "OP_FMULI",
+	[OP_FDIV]     = "OP_FDIV",
+	[OP_FDIVI]    = "OP_FDIVI",
+				  
+	[OP_DADD]     = "OP_DADD",
+	[OP_DADDI]    = "OP_DADDI",
+	[OP_DSUB]     = "OP_DSUB",
+	[OP_DSUBI]    = "OP_DSUBI",
+	[OP_DMUL]     = "OP_DMUL",
+	[OP_DMULI]    = "OP_DMULI",
+	[OP_DDIV]     = "OP_DDIV",
+	[OP_DDIVI]    = "OP_DDIVI",
+				  
+	[OP_NOT]      = "OP_NOT",
+	[OP_OR]       = "OP_OR",
+	[OP_ORI]      = "OP_ORI",
+	[OP_AND]      = "OP_AND",
+	[OP_ANDI]     = "OP_ANDI",
+	[OP_XOR]      = "OP_XOR",
+	[OP_XORI]     = "OP_XORI",
+	[OP_SHL]      = "OP_SHL",
+	[OP_SHLI]     = "OP_SHLI",
+	[OP_SHR]      = "OP_SHR",
+	[OP_SHRI]     = "OP_SHRI",
+	[OP_SAR]      = "OP_SAR",
+	[OP_SARI]     = "OP_SARI",
+	[OP_SAL]      = "OP_SAL",
+	[OP_SALI]     = "OP_SALI",
+				  
+	[OP_JMP]      = "OP_JMP",
+	[OP_JMPI]     = "OP_JMPI",
+	[OP_JIZ]      = "OP_JIZ",
+	[OP_JIZI]     = "OP_JIZI",
+	[OP_JNZ]      = "OP_JNZ",
+	[OP_JNZI]     = "OP_JNZI",
+				  
+	[OP_SEQ]      = "OP_SEQ",
+	[OP_SEQI]     = "OP_SEQI",
+	[OP_SNEQ]     = "OP_SNEQ",
+	[OP_SNEQI]    = "OP_SNEQI",
+	[OP_SLEQ]     = "OP_SLEQ",
+	[OP_SLEQI]    = "OP_SLEQI",
+	[OP_SGEQ]     = "OP_SGEQ",
+	[OP_SGEQI]    = "OP_SGEQI",
+	[OP_SLT]      = "OP_SLT",
+	[OP_SLTI]     = "OP_SLTI",
+	[OP_SGT]      = "OP_SGT",
+	[OP_SGTI]     = "OP_SGTI",
+				  
+	[OP_SLEQU]    = "OP_SLEQU",
+	[OP_SLEQUI]   = "OP_SLEQUI",
+	[OP_SGEQU]    = "OP_SGEQU",
+	[OP_SGEQUI]   = "OP_SGEQUI",
+	[OP_SLTU]     = "OP_SLTU",
+	[OP_SLTUI]    = "OP_SLTUI",
+	[OP_SGTU]     = "OP_SGTU",
+	[OP_SGTUI]    = "OP_SGTUI",
+				  
+	[OP_ITOF]     = "OP_ITOF",
+	[OP_FTOI]     = "OP_FTOI",
+	[OP_ITOD]     = "OP_ITOD",
+	[OP_DTOI]     = "OP_DTOI",
+	[OP_FTOD]     = "OP_FTOD",
+	[OP_DTOF]     = "OP_DTOF",
+	[OP_SEXT8]    = "OP_SEXT8",
+	[OP_SEXT16]   = "OP_SEXT16",
+	[OP_SEXT32]   = "OP_SEXT32",
+				  
+	[OP_CALL]     = "OP_CALL",
+	[OP_CALLI]    = "OP_CALLI",
+	[OP_RET]      = "OP_RET",
+				  
+	[OP_LOAD64]	  = "OP_LOAD64",
+	[OP_LOAD32]	  = "OP_LOAD32",
+	[OP_LOAD16]	  = "OP_LOAD16",
+	[OP_LOAD8]	  = "OP_LOAD8",
+				  
+	[OP_STORE64]  = "OP_STORE64",
+	[OP_STORE32]  = "OP_STORE32",
+	[OP_STORE16]  = "OP_STORE16",
+	[OP_STORE8]	  = "OP_STORE8",
+				  
+	[OP_STORE64I] = "OP_STORE64I",
+	[OP_STORE32I] = "OP_STORE32I",
+	[OP_STORE16I] = "OP_STORE16I",
+	[OP_STORE8I]  = "OP_STORE8I",
+				  
+	[OP_MEMCPY]	  = "OP_MEMCPY",
+	[OP_MEMCPYI]  = "OP_MEMCPYI",
+				  
+	[OP_MALLOC]   = "OP_MALLOC",
+	[OP_MALLOCI]  = "OP_MALLOCI",
 
-	[OP_ALLOCA] = "OP_ALLOCA",
-	[OP_MOV]    = "OP_MOV",
-	[OP_MOVI]   = "OP_MOVI",
-
-	[OP_ADD]    = "OP_ADD",
-	[OP_ADDI]   = "OP_ADDI",
-	[OP_SUB]    = "OP_SUB",
-	[OP_SUBI]   = "OP_SUBI",
-	[OP_MUL]    = "OP_MUL",
-	[OP_MULI]   = "OP_MULI",
-	[OP_IDIV]   = "OP_IDIV",
-	[OP_IDIVI]  = "OP_IDIVI",
-	[OP_UDIV]   = "OP_UDIV",
-	[OP_UDIVI]  = "OP_UDIVI",
-	[OP_IMOD]   = "OP_IMOD",
-	[OP_IMODI]  = "OP_IMODI",
-	[OP_UMOD]   = "OP_UMOD",
-	[OP_UMODI]  = "OP_UMODI",
-
-	[OP_FADD]   = "OP_FADD",
-	[OP_FADDI]  = "OP_FADDI",
-	[OP_FSUB]   = "OP_FSUB",
-	[OP_FSUBI]  = "OP_FSUBI",
-	[OP_FMUL]   = "OP_FMUL",
-	[OP_FMULI]  = "OP_FMULI",
-	[OP_FDIV]   = "OP_FDIV",
-	[OP_FDIVI]  = "OP_FDIVI",
-
-	[OP_DADD]   = "OP_DADD",
-	[OP_DADDI]  = "OP_DADDI",
-	[OP_DSUB]   = "OP_DSUB",
-	[OP_DSUBI]  = "OP_DSUBI",
-	[OP_DMUL]   = "OP_DMUL",
-	[OP_DMULI]  = "OP_DMULI",
-	[OP_DDIV]   = "OP_DDIV",
-	[OP_DDIVI]  = "OP_DDIVI",
-
-	[OP_NOT]    = "OP_NOT",
-	[OP_OR]     = "OP_OR",
-	[OP_ORI]    = "OP_ORI",
-	[OP_AND]    = "OP_AND",
-	[OP_ANDI]   = "OP_ANDI",
-	[OP_XOR]    = "OP_XOR",
-	[OP_XORI]   = "OP_XORI",
-	[OP_SHL]    = "OP_SHL",
-	[OP_SHLI]   = "OP_SHLI",
-	[OP_SHR]    = "OP_SHR",
-	[OP_SHRI]   = "OP_SHRI",
-	[OP_SAR]    = "OP_SAR",
-	[OP_SARI]   = "OP_SARI",
-	[OP_SAL]    = "OP_SAL",
-	[OP_SALI]   = "OP_SALI",
-
-	[OP_JMP]    = "OP_JMP",
-	[OP_JMPI]   = "OP_JMPI",
-	[OP_JIZ]    = "OP_JIZ",
-	[OP_JIZI]   = "OP_JIZI",
-	[OP_JNZ]    = "OP_JNZ",
-	[OP_JNZI]   = "OP_JNZI",
-
-	[OP_SEQ]    = "OP_SEQ",
-	[OP_SEQI]   = "OP_SEQI",
-	[OP_SNEQ]   = "OP_SNEQ",
-	[OP_SNEQI]  = "OP_SNEQI",
-	[OP_SLEQ]   = "OP_SLEQ",
-	[OP_SLEQI]  = "OP_SLEQI",
-	[OP_SGEQ]   = "OP_SGEQ",
-	[OP_SGEQI]  = "OP_SGEQI",
-	[OP_SLT]    = "OP_SLT",
-	[OP_SLTI]   = "OP_SLTI",
-	[OP_SGT]    = "OP_SGT",
-	[OP_SGTI]   = "OP_SGTI",
-
-	[OP_SLEQU]  = "OP_SLEQU",
-	[OP_SLEQUI] = "OP_SLEQUI",
-	[OP_SGEQU]  = "OP_SGEQU",
-	[OP_SGEQUI] = "OP_SGEQUI",
-	[OP_SLTU]   = "OP_SLTU",
-	[OP_SLTUI]  = "OP_SLTUI",
-	[OP_SGTU]   = "OP_SGTU",
-	[OP_SGTUI]  = "OP_SGTUI",
-
-	[OP_ITOF]   = "OP_ITOF",
-	[OP_FTOI]   = "OP_FTOI",
-	[OP_ITOD]   = "OP_ITOD",
-	[OP_DTOI]   = "OP_DTOI",
-	[OP_SEXT8]  = "OP_SEXT8",
-	[OP_SEXT16] = "OP_SEXT16",
-	[OP_SEXT32] = "OP_SEXT32",
-
-	[OP_CALL]   = "OP_CALL",
-	[OP_RET]    = "OP_RET",
+	[OP_MEMSET]   = "OP_MEMSET",
+	[OP_MEMSETI]   = "OP_MEMSETI",
 };
 
 VM_Program ee_vm_prog_new(size_t ops_count, size_t consts_count, size_t data_bytes, const Allocator* allocator)
@@ -226,7 +253,7 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 
 		switch (op.code)
 		{
-		case OP_ALLOCA:
+		case OP_ALLOCAI:
 		{
 			// TODO(eesuck): add bulk alloc or bulk insert zero/none into linked array implementation
 			VM_Val none = { 0 };
@@ -773,6 +800,19 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			VM_Val res = { .as_u64 = (u64)src_1.as_f32 };
 			ee_vm_stack_set(vm, op.r_d, res);
 		} break;
+		case OP_FTOD:
+		{
+			VM_Val src = ee_vm_stack_at(vm, op.r_1);
+			VM_Val res = { .as_f64 = (f64)src.as_f32 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
+
+		case OP_DTOF:
+		{
+			VM_Val src = ee_vm_stack_at(vm, op.r_1);
+			VM_Val res = { .as_f32 = (f32)src.as_f64 };
+			ee_vm_stack_set(vm, op.r_d, res);
+		} break;
 		case OP_ITOD:
 		{
 			VM_Val src_1 = ee_vm_stack_at(vm, op.r_1);
@@ -819,6 +859,22 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 
 			ee_linked_array_push(&vm->frames, EE_RECAST_U8(frame));
 		} break;
+
+		case OP_CALLI:
+		{
+			VM_Val op_id = ee_vm_prog_get_imm(prog, op.r_d);
+			VM_Val op_argc = ee_vm_prog_get_imm(prog, op.r_1);
+
+			VM_Call_Frame frame = { 0 };
+
+			frame.ip = vm->ip;
+			frame.bp = vm->bp;
+
+			vm->bp = vm->sp - (VM_Word)op_argc.as_u64;
+			vm->ip = (VM_Word)op_id.as_u64;
+
+			ee_linked_array_push(&vm->frames, EE_RECAST_U8(frame));
+		} break;
 		case OP_RET:
 		{
 			VM_Call_Frame frame = { 0 };
@@ -829,6 +885,152 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			vm->ip = frame.ip;
 			vm->bp = frame.bp;
 		} break;
+
+		case OP_LOAD64:
+		{
+			VM_Val ptr = ee_vm_stack_at(vm, op.r_1);
+			VM_Val val = { 0 };
+
+			memcpy(&val, ptr.as_anyptr, 8);
+			ee_vm_stack_set(vm, op.r_d, val);
+		} break;
+		case OP_LOAD32:
+		{
+			VM_Val ptr = ee_vm_stack_at(vm, op.r_1);
+			VM_Val val = { 0 };
+
+			memcpy(&val, ptr.as_anyptr, 4);
+			ee_vm_stack_set(vm, op.r_d, val);
+		} break;
+		case OP_LOAD16:
+		{
+			VM_Val ptr = ee_vm_stack_at(vm, op.r_1);
+			VM_Val val = { 0 };
+
+			memcpy(&val, ptr.as_anyptr, 2);
+			ee_vm_stack_set(vm, op.r_d, val);
+		} break;
+		case OP_LOAD8:
+		{
+			VM_Val ptr = ee_vm_stack_at(vm, op.r_1);
+			VM_Val val = { 0 };
+
+			memcpy(&val, ptr.as_anyptr, 1);
+			ee_vm_stack_set(vm, op.r_d, val);
+		} break;
+
+		case OP_STORE64:
+		{
+			VM_Val ptr = ee_vm_stack_at(vm, op.r_d);
+			VM_Val val = ee_vm_stack_at(vm, op.r_1);
+
+			memcpy(ptr.as_anyptr, &val, 8);
+		} break;
+		case OP_STORE32:
+		{
+			VM_Val ptr = ee_vm_stack_at(vm, op.r_d);
+			VM_Val val = ee_vm_stack_at(vm, op.r_1);
+
+			memcpy(ptr.as_anyptr, &val, 4);
+		} break;
+		case OP_STORE16:
+		{
+			VM_Val ptr = ee_vm_stack_at(vm, op.r_d);
+			VM_Val val = ee_vm_stack_at(vm, op.r_1);
+
+			memcpy(ptr.as_anyptr, &val, 2);
+		} break;
+		case OP_STORE8:
+		{
+			VM_Val ptr = ee_vm_stack_at(vm, op.r_d);
+			VM_Val val = ee_vm_stack_at(vm, op.r_1);
+
+			memcpy(ptr.as_anyptr, &val, 1);
+		} break;
+
+		case OP_STORE64I:
+		{
+			VM_Val ptr = ee_vm_stack_at(vm, op.r_d);
+			VM_Val val = ee_vm_prog_get_imm(prog, op.r_1);
+
+			memcpy(ptr.as_anyptr, &val, 8);
+		} break;
+		case OP_STORE32I:
+		{
+			VM_Val ptr = ee_vm_stack_at(vm, op.r_d);
+			VM_Val val = ee_vm_prog_get_imm(prog, op.r_1);
+
+			memcpy(ptr.as_anyptr, &val, 4);
+		} break;
+		case OP_STORE16I:
+		{
+			VM_Val ptr = ee_vm_stack_at(vm, op.r_d);
+			VM_Val val = ee_vm_prog_get_imm(prog, op.r_1);
+
+			memcpy(ptr.as_anyptr, &val, 2);
+		} break;
+		case OP_STORE8I:
+		{
+			VM_Val ptr = ee_vm_stack_at(vm, op.r_d);
+			VM_Val val = ee_vm_prog_get_imm(prog, op.r_1);
+
+			memcpy(ptr.as_anyptr, &val, 1);
+		} break;
+
+		case OP_MEMCPY:
+		{
+			VM_Val dest = ee_vm_stack_at(vm, op.r_d);
+			VM_Val src = ee_vm_stack_at(vm, op.r_1);
+			VM_Val size = ee_vm_stack_at(vm, op.r_0);
+
+			memcpy(dest.as_anyptr, src.as_anyptr, size.as_u64);
+		} break;
+		case OP_MEMCPYI:
+		{
+			VM_Val dest = ee_vm_stack_at(vm, op.r_d);
+			VM_Val src = ee_vm_stack_at(vm, op.r_1);
+			VM_Val size = ee_vm_prog_get_imm(prog, op.r_0);
+
+			memcpy(dest.as_anyptr, src.as_anyptr, size.as_u64);
+		} break;
+
+		case OP_MALLOC:
+		{
+			VM_Val size = ee_vm_stack_at(vm, op.r_1);
+			VM_Val result = { 0 };
+
+			result.as_anyptr = ee_linked_arena_alloc(&vm->heap, size.as_u64);
+
+			ee_vm_stack_set(vm, op.r_d, result);
+		} break;
+		case OP_MALLOCI:
+		{
+			VM_Val size = ee_vm_prog_get_imm(prog, op.r_1);
+			VM_Val result = { 0 };
+
+			result.as_anyptr = ee_linked_arena_alloc(&vm->heap, size.as_u64);
+			
+			ee_vm_stack_set(vm, op.r_d, result);
+		} break;
+
+		case OP_MEMSET:
+		{
+			VM_Val dest = ee_vm_stack_at(vm, op.r_d);
+			VM_Val val = ee_vm_stack_at(vm, op.r_1);
+			VM_Val size = ee_vm_stack_at(vm, op.r_0);
+
+			memset(dest.as_anyptr, val.as_i32, size.as_u64);
+		} break;
+
+		case OP_MEMSETI:
+		{
+			VM_Val dest = ee_vm_stack_at(vm, op.r_d);
+			VM_Val val = ee_vm_prog_get_imm(prog, op.r_1);
+			VM_Val size = ee_vm_prog_get_imm(prog, op.r_0);
+
+			memset(dest.as_anyptr, val.as_i32, size.as_u64);
+		} break;
+
 		case OP_HALT:
 		{
 			vm->halt = EE_TRUE;
@@ -902,8 +1104,29 @@ void ee_vm_prog_debug_print(const VM_Program* prog)
 		if (op->code < OP_COUNT && _s_op_names[op->code])
 			EE_PRINT("%-10s", _s_op_names[op->code]);
 		else
-			EE_PRINT("OP_%-3d", op->code);
+			EE_PRINT("OP_%-3d   ", op->code);
 
-		EE_PRINTLN(" r%-2u, r%-2u, r%-2u", op->r_d, op->r_1, op->r_0);
+		if (op->r_0 != EE_VM_INVALID_REG)
+		{
+			EE_PRINTLN(" %c%-2u, %c%-2u, %c%-2u",
+				(op->r_d & EE_VM_IMM_FLAG) ? 'i' : 'r', op->r_d & EE_VM_IMM_MASK,
+				(op->r_1 & EE_VM_IMM_FLAG) ? 'i' : 'r', op->r_1 & EE_VM_IMM_MASK,
+				(op->r_0 & EE_VM_IMM_FLAG) ? 'i' : 'r', op->r_0 & EE_VM_IMM_MASK);
+		}
+		else if (op->r_1 != EE_VM_INVALID_REG)
+		{
+			EE_PRINTLN(" %c%-2u, %c%-2u",
+				(op->r_d & EE_VM_IMM_FLAG) ? 'i' : 'r', op->r_d & EE_VM_IMM_MASK,
+				(op->r_1 & EE_VM_IMM_FLAG) ? 'i' : 'r', op->r_1 & EE_VM_IMM_MASK);
+		}
+		else if (op->r_d != EE_VM_INVALID_REG)
+		{
+			EE_PRINTLN(" %c%-2u",
+				(op->r_d & EE_VM_IMM_FLAG) ? 'i' : 'r', op->r_d & EE_VM_IMM_MASK);
+		}
+		else
+		{
+			EE_PRINT("\n");
+		}
 	}
 }
