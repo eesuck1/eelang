@@ -155,6 +155,25 @@ typedef enum VM_Op_Code
 	OP_MEMSET,
 	OP_MEMSETI,
 
+	OP_REGADDR,
+
+	OP_REGSET8,
+	OP_REGSET16,
+	OP_REGSET32,
+	OP_REGSET8I,
+	OP_REGSET16I,
+	OP_REGSET32I,
+
+	OP_REGCPY8,
+	OP_REGCPY16,
+	OP_REGCPY32,
+	OP_REGCPY8I,
+	OP_REGCPY16I,
+	OP_REGCPY32I,
+
+	OP_ASSERT,
+	OP_LOGSTATE,
+
 	OP_COUNT
 } VM_Op_Code;
 
@@ -173,7 +192,7 @@ typedef union VM_Val
 
 	f32 as_f32; f64 as_f64;
 
-	u8 as_bytes[8];
+	u8  as_bytes[8];
 	u16 as_words[4];
 	u32 as_dwords[2];
 
@@ -219,6 +238,7 @@ VM_Word ee_vm_prog_push_const(VM_Program* prog, VM_Val const_val);
 
 Virtual_Machine ee_vm_new(size_t stack_size, size_t heap_size, const Allocator* allocator);
 VM_Val ee_vm_stack_at(Virtual_Machine* vm, VM_Word i);
+VM_Val* ee_vm_stack_at_ptr(Virtual_Machine* vm, VM_Word i);
 void ee_vm_stack_set(Virtual_Machine* vm, VM_Word i, VM_Val val);
 void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog);
 void ee_vm_debug_print(const Virtual_Machine* vm);

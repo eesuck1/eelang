@@ -1,127 +1,146 @@
 #include "ee_ir.h"
 
 static const char* _s_op_names[OP_COUNT] = {
-	[OP_HALT]     = "OP_HALT",
-				  
-	[OP_ALLOCAI]  = "OP_ALLOCAI",
-	[OP_MOV]      = "OP_MOV",
-	[OP_MOVI]     = "OP_MOVI",
-				  
-	[OP_ADD]      = "OP_ADD",
-	[OP_ADDI]     = "OP_ADDI",
-	[OP_SUB]      = "OP_SUB",
-	[OP_SUBI]     = "OP_SUBI",
-	[OP_MUL]      = "OP_MUL",
-	[OP_MULI]     = "OP_MULI",
-	[OP_IDIV]     = "OP_IDIV",
-	[OP_IDIVI]    = "OP_IDIVI",
-	[OP_UDIV]     = "OP_UDIV",
-	[OP_UDIVI]    = "OP_UDIVI",
-	[OP_IMOD]     = "OP_IMOD",
-	[OP_IMODI]    = "OP_IMODI",
-	[OP_UMOD]     = "OP_UMOD",
-	[OP_UMODI]    = "OP_UMODI",
-				  
-	[OP_FADD]     = "OP_FADD",
-	[OP_FADDI]    = "OP_FADDI",
-	[OP_FSUB]     = "OP_FSUB",
-	[OP_FSUBI]    = "OP_FSUBI",
-	[OP_FMUL]     = "OP_FMUL",
-	[OP_FMULI]    = "OP_FMULI",
-	[OP_FDIV]     = "OP_FDIV",
-	[OP_FDIVI]    = "OP_FDIVI",
-				  
-	[OP_DADD]     = "OP_DADD",
-	[OP_DADDI]    = "OP_DADDI",
-	[OP_DSUB]     = "OP_DSUB",
-	[OP_DSUBI]    = "OP_DSUBI",
-	[OP_DMUL]     = "OP_DMUL",
-	[OP_DMULI]    = "OP_DMULI",
-	[OP_DDIV]     = "OP_DDIV",
-	[OP_DDIVI]    = "OP_DDIVI",
-				  
-	[OP_NOT]      = "OP_NOT",
-	[OP_OR]       = "OP_OR",
-	[OP_ORI]      = "OP_ORI",
-	[OP_AND]      = "OP_AND",
-	[OP_ANDI]     = "OP_ANDI",
-	[OP_XOR]      = "OP_XOR",
-	[OP_XORI]     = "OP_XORI",
-	[OP_SHL]      = "OP_SHL",
-	[OP_SHLI]     = "OP_SHLI",
-	[OP_SHR]      = "OP_SHR",
-	[OP_SHRI]     = "OP_SHRI",
-	[OP_SAR]      = "OP_SAR",
-	[OP_SARI]     = "OP_SARI",
-	[OP_SAL]      = "OP_SAL",
-	[OP_SALI]     = "OP_SALI",
-				  
-	[OP_JMP]      = "OP_JMP",
-	[OP_JMPI]     = "OP_JMPI",
-	[OP_JIZ]      = "OP_JIZ",
-	[OP_JIZI]     = "OP_JIZI",
-	[OP_JNZ]      = "OP_JNZ",
-	[OP_JNZI]     = "OP_JNZI",
-				  
-	[OP_SEQ]      = "OP_SEQ",
-	[OP_SEQI]     = "OP_SEQI",
-	[OP_SNEQ]     = "OP_SNEQ",
-	[OP_SNEQI]    = "OP_SNEQI",
-	[OP_SLEQ]     = "OP_SLEQ",
-	[OP_SLEQI]    = "OP_SLEQI",
-	[OP_SGEQ]     = "OP_SGEQ",
-	[OP_SGEQI]    = "OP_SGEQI",
-	[OP_SLT]      = "OP_SLT",
-	[OP_SLTI]     = "OP_SLTI",
-	[OP_SGT]      = "OP_SGT",
-	[OP_SGTI]     = "OP_SGTI",
-				  
-	[OP_SLEQU]    = "OP_SLEQU",
-	[OP_SLEQUI]   = "OP_SLEQUI",
-	[OP_SGEQU]    = "OP_SGEQU",
-	[OP_SGEQUI]   = "OP_SGEQUI",
-	[OP_SLTU]     = "OP_SLTU",
-	[OP_SLTUI]    = "OP_SLTUI",
-	[OP_SGTU]     = "OP_SGTU",
-	[OP_SGTUI]    = "OP_SGTUI",
-				  
-	[OP_ITOF]     = "OP_ITOF",
-	[OP_FTOI]     = "OP_FTOI",
-	[OP_ITOD]     = "OP_ITOD",
-	[OP_DTOI]     = "OP_DTOI",
-	[OP_FTOD]     = "OP_FTOD",
-	[OP_DTOF]     = "OP_DTOF",
-	[OP_SEXT8]    = "OP_SEXT8",
-	[OP_SEXT16]   = "OP_SEXT16",
-	[OP_SEXT32]   = "OP_SEXT32",
-				  
-	[OP_CALL]     = "OP_CALL",
-	[OP_CALLI]    = "OP_CALLI",
-	[OP_RET]      = "OP_RET",
-				  
-	[OP_LOAD64]	  = "OP_LOAD64",
-	[OP_LOAD32]	  = "OP_LOAD32",
-	[OP_LOAD16]	  = "OP_LOAD16",
-	[OP_LOAD8]	  = "OP_LOAD8",
-				  
-	[OP_STORE64]  = "OP_STORE64",
-	[OP_STORE32]  = "OP_STORE32",
-	[OP_STORE16]  = "OP_STORE16",
-	[OP_STORE8]	  = "OP_STORE8",
-				  
-	[OP_STORE64I] = "OP_STORE64I",
-	[OP_STORE32I] = "OP_STORE32I",
-	[OP_STORE16I] = "OP_STORE16I",
-	[OP_STORE8I]  = "OP_STORE8I",
-				  
-	[OP_MEMCPY]	  = "OP_MEMCPY",
-	[OP_MEMCPYI]  = "OP_MEMCPYI",
-				  
-	[OP_MALLOC]   = "OP_MALLOC",
-	[OP_MALLOCI]  = "OP_MALLOCI",
-
-	[OP_MEMSET]   = "OP_MEMSET",
+	[OP_HALT]      = "OP_HALT",
+				   
+	[OP_ALLOCAI]   = "OP_ALLOCAI",
+	[OP_MOV]       = "OP_MOV",
+	[OP_MOVI]      = "OP_MOVI",
+				   
+	[OP_ADD]       = "OP_ADD",
+	[OP_ADDI]      = "OP_ADDI",
+	[OP_SUB]       = "OP_SUB",
+	[OP_SUBI]      = "OP_SUBI",
+	[OP_MUL]       = "OP_MUL",
+	[OP_MULI]      = "OP_MULI",
+	[OP_IDIV]      = "OP_IDIV",
+	[OP_IDIVI]     = "OP_IDIVI",
+	[OP_UDIV]      = "OP_UDIV",
+	[OP_UDIVI]     = "OP_UDIVI",
+	[OP_IMOD]      = "OP_IMOD",
+	[OP_IMODI]     = "OP_IMODI",
+	[OP_UMOD]      = "OP_UMOD",
+	[OP_UMODI]     = "OP_UMODI",
+				   
+	[OP_FADD]      = "OP_FADD",
+	[OP_FADDI]     = "OP_FADDI",
+	[OP_FSUB]      = "OP_FSUB",
+	[OP_FSUBI]     = "OP_FSUBI",
+	[OP_FMUL]      = "OP_FMUL",
+	[OP_FMULI]     = "OP_FMULI",
+	[OP_FDIV]      = "OP_FDIV",
+	[OP_FDIVI]     = "OP_FDIVI",
+				   
+	[OP_DADD]      = "OP_DADD",
+	[OP_DADDI]     = "OP_DADDI",
+	[OP_DSUB]      = "OP_DSUB",
+	[OP_DSUBI]     = "OP_DSUBI",
+	[OP_DMUL]      = "OP_DMUL",
+	[OP_DMULI]     = "OP_DMULI",
+	[OP_DDIV]      = "OP_DDIV",
+	[OP_DDIVI]     = "OP_DDIVI",
+				   
+	[OP_NOT]       = "OP_NOT",
+	[OP_OR]        = "OP_OR",
+	[OP_ORI]       = "OP_ORI",
+	[OP_AND]       = "OP_AND",
+	[OP_ANDI]      = "OP_ANDI",
+	[OP_XOR]       = "OP_XOR",
+	[OP_XORI]      = "OP_XORI",
+	[OP_SHL]       = "OP_SHL",
+	[OP_SHLI]      = "OP_SHLI",
+	[OP_SHR]       = "OP_SHR",
+	[OP_SHRI]      = "OP_SHRI",
+	[OP_SAR]       = "OP_SAR",
+	[OP_SARI]      = "OP_SARI",
+	[OP_SAL]       = "OP_SAL",
+	[OP_SALI]      = "OP_SALI",
+				   
+	[OP_JMP]       = "OP_JMP",
+	[OP_JMPI]      = "OP_JMPI",
+	[OP_JIZ]       = "OP_JIZ",
+	[OP_JIZI]      = "OP_JIZI",
+	[OP_JNZ]       = "OP_JNZ",
+	[OP_JNZI]      = "OP_JNZI",
+				   
+	[OP_SEQ]       = "OP_SEQ",
+	[OP_SEQI]      = "OP_SEQI",
+	[OP_SNEQ]      = "OP_SNEQ",
+	[OP_SNEQI]     = "OP_SNEQI",
+	[OP_SLEQ]      = "OP_SLEQ",
+	[OP_SLEQI]     = "OP_SLEQI",
+	[OP_SGEQ]      = "OP_SGEQ",
+	[OP_SGEQI]     = "OP_SGEQI",
+	[OP_SLT]       = "OP_SLT",
+	[OP_SLTI]      = "OP_SLTI",
+	[OP_SGT]       = "OP_SGT",
+	[OP_SGTI]      = "OP_SGTI",
+				   
+	[OP_SLEQU]     = "OP_SLEQU",
+	[OP_SLEQUI]    = "OP_SLEQUI",
+	[OP_SGEQU]     = "OP_SGEQU",
+	[OP_SGEQUI]    = "OP_SGEQUI",
+	[OP_SLTU]      = "OP_SLTU",
+	[OP_SLTUI]     = "OP_SLTUI",
+	[OP_SGTU]      = "OP_SGTU",
+	[OP_SGTUI]     = "OP_SGTUI",
+				   
+	[OP_ITOF]      = "OP_ITOF",
+	[OP_FTOI]      = "OP_FTOI",
+	[OP_ITOD]      = "OP_ITOD",
+	[OP_DTOI]      = "OP_DTOI",
+	[OP_FTOD]      = "OP_FTOD",
+	[OP_DTOF]      = "OP_DTOF",
+	[OP_SEXT8]     = "OP_SEXT8",
+	[OP_SEXT16]    = "OP_SEXT16",
+	[OP_SEXT32]    = "OP_SEXT32",
+				   
+	[OP_CALL]      = "OP_CALL",
+	[OP_CALLI]     = "OP_CALLI",
+	[OP_RET]       = "OP_RET",
+				   
+	[OP_LOAD64]	   = "OP_LOAD64",
+	[OP_LOAD32]	   = "OP_LOAD32",
+	[OP_LOAD16]	   = "OP_LOAD16",
+	[OP_LOAD8]	   = "OP_LOAD8",
+				   
+	[OP_STORE64]   = "OP_STORE64",
+	[OP_STORE32]   = "OP_STORE32",
+	[OP_STORE16]   = "OP_STORE16",
+	[OP_STORE8]	   = "OP_STORE8",
+				   
+	[OP_STORE64I]  = "OP_STORE64I",
+	[OP_STORE32I]  = "OP_STORE32I",
+	[OP_STORE16I]  = "OP_STORE16I",
+	[OP_STORE8I]   = "OP_STORE8I",
+				   
+	[OP_MEMCPY]	   = "OP_MEMCPY",
+	[OP_MEMCPYI]   = "OP_MEMCPYI",
+				   
+	[OP_MALLOC]    = "OP_MALLOC",
+	[OP_MALLOCI]   = "OP_MALLOCI",
+				   
+	[OP_MEMSET]    = "OP_MEMSET",
 	[OP_MEMSETI]   = "OP_MEMSETI",
+				   
+	[OP_REGADDR]   = "OP_REGADDR",
+				   
+	[OP_REGSET8]   = "OP_REGSET8",
+	[OP_REGSET16]  = "OP_REGSET16",
+	[OP_REGSET32]  = "OP_REGSET32",
+	[OP_REGSET8I]  = "OP_REGSET8I",
+	[OP_REGSET16I] = "OP_REGSET16I",
+	[OP_REGSET32I] = "OP_REGSET32I",
+
+	[OP_REGCPY8]   = "OP_REGCPY8",
+	[OP_REGCPY16]  = "OP_REGCPY16",
+	[OP_REGCPY32]  = "OP_REGCPY32",
+	[OP_REGCPY8I]  = "OP_REGCPY8I",
+	[OP_REGCPY16I] = "OP_REGCPY16I",
+	[OP_REGCPY32I] = "OP_REGCPY32I",
+
+	[OP_ASSERT]    = "OP_ASSERT",
+	[OP_LOGSTATE]  = "OP_LOGSTATE",
 };
 
 VM_Program ee_vm_prog_new(size_t ops_count, size_t consts_count, size_t data_bytes, const Allocator* allocator)
@@ -233,6 +252,12 @@ Virtual_Machine ee_vm_new(size_t stack_size, size_t heap_size, const Allocator* 
 VM_Val ee_vm_stack_at(Virtual_Machine* vm, VM_Word i)
 {
 	VM_Val out = *(VM_Val*)ee_linked_array_at(&vm->stack, (size_t)vm->bp + i);
+	return out;
+}
+
+VM_Val* ee_vm_stack_at_ptr(Virtual_Machine* vm, VM_Word i)
+{
+	VM_Val* out = (VM_Val*)ee_linked_array_at(&vm->stack, (size_t)vm->bp + i);
 	return out;
 }
 
@@ -1031,6 +1056,141 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog)
 			memset(dest.as_anyptr, val.as_i32, size.as_u64);
 		} break;
 
+		case OP_REGADDR:
+		{
+			VM_Val dest = { .as_anyptr = ee_vm_stack_at_ptr(vm, op.r_1) };
+			ee_vm_stack_set(vm, op.r_d, dest);
+		} break;
+
+		case OP_REGSET8:
+		{
+			VM_Val* dest = ee_vm_stack_at_ptr(vm, op.r_d);
+
+			VM_Val index = ee_vm_stack_at(vm, op.r_1);
+			VM_Val val  = ee_vm_stack_at(vm, op.r_0);
+
+			dest->as_bytes[index.as_u64] = val.as_u8;
+		} break;
+		case OP_REGSET16:
+		{
+			VM_Val* dest = ee_vm_stack_at_ptr(vm, op.r_d);
+
+			VM_Val index = ee_vm_stack_at(vm, op.r_1);
+			VM_Val val = ee_vm_stack_at(vm, op.r_0);
+
+			dest->as_words[index.as_u64] = val.as_u16;
+		} break;
+		case OP_REGSET32:
+		{
+			VM_Val* dest = ee_vm_stack_at_ptr(vm, op.r_d);
+
+			VM_Val index = ee_vm_stack_at(vm, op.r_1);
+			VM_Val val = ee_vm_stack_at(vm, op.r_0);
+
+			dest->as_dwords[index.as_u64] = val.as_u32;
+		} break;
+
+		case OP_REGSET8I:
+		{
+			VM_Val* dest = ee_vm_stack_at_ptr(vm, op.r_d);
+
+			VM_Val index = ee_vm_prog_get_imm(prog, op.r_1);
+			VM_Val val  = ee_vm_prog_get_imm(prog, op.r_0);
+
+			dest->as_bytes[index.as_u64] = val.as_u8;
+		} break;
+		case OP_REGSET16I:
+		{
+			VM_Val* dest = ee_vm_stack_at_ptr(vm, op.r_d);
+
+			VM_Val index = ee_vm_prog_get_imm(prog, op.r_1);
+			VM_Val val = ee_vm_prog_get_imm(prog, op.r_0);
+
+			dest->as_words[index.as_u64] = val.as_u16;
+		} break;
+		case OP_REGSET32I:
+		{
+			VM_Val* dest = ee_vm_stack_at_ptr(vm, op.r_d);
+
+			VM_Val index = ee_vm_prog_get_imm(prog, op.r_1);
+			VM_Val val = ee_vm_prog_get_imm(prog, op.r_0);
+
+			dest->as_dwords[index.as_u64] = val.as_u32;
+		} break;
+
+		case OP_REGCPY8:
+		{
+			VM_Val* dest = ee_vm_stack_at_ptr(vm, op.r_d);
+
+			VM_Val index = ee_vm_stack_at(vm, op.r_1);
+			VM_Val val = ee_vm_stack_at(vm, op.r_0);
+
+			dest->as_bytes[index.as_u64] = val.as_bytes[index.as_u64];
+		} break;
+		case OP_REGCPY16:
+		{
+			VM_Val* dest = ee_vm_stack_at_ptr(vm, op.r_d);
+
+			VM_Val index = ee_vm_stack_at(vm, op.r_1);
+			VM_Val val = ee_vm_stack_at(vm, op.r_0);
+
+			dest->as_words[index.as_u64] = val.as_words[index.as_u64];
+		} break;
+		case OP_REGCPY32:
+		{
+			VM_Val* dest = ee_vm_stack_at_ptr(vm, op.r_d);
+
+			VM_Val index = ee_vm_stack_at(vm, op.r_1);
+			VM_Val val = ee_vm_stack_at(vm, op.r_0);
+
+			dest->as_dwords[index.as_u64] = val.as_dwords[index.as_u64];
+		} break;
+		case OP_REGCPY8I:
+		{
+			VM_Val* dest = ee_vm_stack_at_ptr(vm, op.r_d);
+
+			VM_Val index = ee_vm_prog_get_imm(prog, op.r_1);
+			VM_Val val = ee_vm_stack_at(vm, op.r_0);
+
+			dest->as_bytes[index.as_u64] = val.as_bytes[index.as_u64];
+		} break;
+		case OP_REGCPY16I:
+		{
+
+			VM_Val* dest = ee_vm_stack_at_ptr(vm, op.r_d);
+
+			VM_Val index = ee_vm_prog_get_imm(prog, op.r_1);
+			VM_Val val = ee_vm_stack_at(vm, op.r_0);
+
+			dest->as_words[index.as_u64] = val.as_words[index.as_u64];
+		} break;
+		case OP_REGCPY32I:
+		{
+			VM_Val* dest = ee_vm_stack_at_ptr(vm, op.r_d);
+
+			VM_Val index = ee_vm_prog_get_imm(prog, op.r_1);
+			VM_Val val = ee_vm_stack_at(vm, op.r_0);
+
+			dest->as_dwords[index.as_u64] = val.as_dwords[index.as_u64];
+		} break;
+
+		case OP_ASSERT:
+		{
+			EE_PRINTLN("\nASSERTATION IN VM AT INSTRUCTION (%d)", vm->ip);
+			EE_PRINTLN("STATE START");
+			ee_vm_debug_print(vm);
+			EE_PRINTLN("\nSTATE END");
+
+			vm->halt = EE_TRUE;
+		} break;
+		case OP_LOGSTATE:
+		{
+			EE_PRINTLN("\nVM STATE AT INSTRUCTION (%d)", vm->ip);
+			EE_PRINTLN("STATE START");
+			ee_vm_debug_print(vm);
+			EE_PRINTLN("\nSTATE END");
+		} break;
+
 		case OP_HALT:
 		{
 			vm->halt = EE_TRUE;
@@ -1050,7 +1210,7 @@ void ee_vm_debug_print(const Virtual_Machine* vm)
 	{
 		VM_Val val = *(VM_Val*)ee_linked_array_at(&vm->stack, i);
 
-		EE_PRINT("[0x%X%X]", val.as_dwords[1], val.as_dwords[0]);
+		EE_PRINT("[0x%08X%08X]", val.as_dwords[1], val.as_dwords[0]);
 
 		if (i < vm->sp - 1)
 		{
@@ -1077,7 +1237,7 @@ void ee_vm_prog_debug_print(const VM_Program* prog)
 	{
 		VM_Val val = *(VM_Val*)ee_linked_array_at(&prog->consts, i);
 
-		EE_PRINT("[0x%X%X]", val.as_dwords[1], val.as_dwords[0]);
+		EE_PRINT("[0x%08X%08X]", val.as_dwords[1], val.as_dwords[0]);
 
 		if (i < consts_count - 1)
 		{
