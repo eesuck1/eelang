@@ -244,4 +244,134 @@ void ee_vm_run(Virtual_Machine* vm, const VM_Program* prog);
 void ee_vm_debug_print(const Virtual_Machine* vm);
 void ee_vm_prog_debug_print(const VM_Program* prog);
 
+typedef enum Sem_Atom_Type
+{
+	ATOM_U8   = 0,
+	ATOM_U16  = 1,
+	ATOM_U32  = 2,
+	ATOM_U64  = 3,
+			   
+	ATOM_I8   = 4,
+	ATOM_I16  = 5,
+	ATOM_I32  = 6,
+	ATOM_I64  = 7,
+			   
+	ATOM_F32  = 8,
+	ATOM_F64  = 9,
+
+	ATOM_BOOL = 10,
+	ATOM_VOID = 11,
+	ATOM_TYPE = 12,
+
+	ATOM_COUNT,
+} Sem_Atom_Type;
+
+typedef enum Sem_Type_Kind
+{
+	SEM_TYPE_ATOM          = 0,
+	SEM_TYPE_STATIC_ARRAY  = 1,
+	SEM_TYPE_STRUCT        = 2,
+	SEM_TYPE_UNION         = 3,
+	SEM_TYPE_FUNC          = 4,
+	SEM_TYPE_TYPE          = 5,
+} Sem_Type_Kind;
+
+typedef enum Sem_State
+{
+	SEM_TYPE_COMPLETED = 0,
+	SEM_TYPE_RESOLVING = 1,
+} Sem_State;
+
+typedef enum Sem_Entry_Type
+{
+	SEM_ENTRY_COMPTIME = 0,
+	SEM_ENTRY_RUNTIME  = 1,
+} Sem_Entry_Type;
+
+typedef struct Sem_Type Sem_Type;
+
+typedef struct Sem_Type
+{
+	Sem_Type_Kind type;
+	Sem_State state;
+
+	union
+	{
+		struct
+		{
+			Sem_Atom_Type type;
+		} as_atom;
+
+		struct
+		{
+			Sem_Type* dtype;
+			size_t size;
+		} as_static_array;
+
+		struct
+		{
+			Linked_Array members; // Sem_Type*
+		} as_struct;
+
+		struct
+		{
+			Linked_Array members; // Sem_Type*
+		} as_union;
+
+		struct
+		{
+			Linked_Array params;
+		} as_func;
+	};
+} Sem_Type;
+
+typedef struct Sem_Val
+{
+	Sem_Atom_Type type;
+
+	union
+	{
+		u8 as_u8; u16 as_u16; u32 as_u32; u64 as_u64;
+		i8 as_i8; i16 as_i16; i32 as_i32; i64 as_i64;
+
+		f32 as_f32; f64 as_f64;
+
+		Sem_Type* as_type;
+		void* as_anyptr;
+	};
+} Sem_Val;
+
+typedef struct Sem_Entry
+{
+	Sem_Entry_Type type;
+	Sem_Type* sem_type;
+
+	union
+	{
+		Sem_Val as_comptime;
+		void* as_runtime;    // TODO(eesuck): figure what this should be
+	};
+} Sem_Entry;
+
+typedef struct Sem_Gen_Context
+{
+	VM_Word dest;
+	VM_Word start_reg;
+} Sem_Gen_Context;
+
+typedef struct Sem_Scope
+{
+	Dict symbols; 
+	struct Sem_Scope* parent;
+} Sem_Scope;
+
+typedef struct Semantic_Analyzer
+{
+	VM_Program ir;
+	Allocator allocator;
+} Semantic_Analyzer;
+
+Semantic_Analyzer ee_sem_new(const Allocator* allocator);
+void ee_sem_gen_expr(Semantic_Analyzer* sem, Ast_Expr* expr, Sem_Gen_Context context);
+
 #endif // EE_IR_H

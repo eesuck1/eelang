@@ -143,6 +143,25 @@ static const char* _s_op_names[OP_COUNT] = {
 	[OP_LOGSTATE]  = "OP_LOGSTATE",
 };
 
+static const char* _s_atom_names[ATOM_COUNT] = {
+	[ATOM_U8]   = "ATOM_U8",
+	[ATOM_U16]  = "ATOM_U16",
+	[ATOM_U32]  = "ATOM_U32",
+	[ATOM_U64]  = "ATOM_U64",
+
+	[ATOM_I8]   = "ATOM_I8",
+	[ATOM_I16]  = "ATOM_I16",
+	[ATOM_I32]  = "ATOM_I32",
+	[ATOM_I64]  = "ATOM_I64",
+
+	[ATOM_F32]  = "ATOM_F32",
+	[ATOM_F64]  = "ATOM_F64",
+
+	[ATOM_BOOL] = "ATOM_BOOL",
+	[ATOM_VOID] = "ATOM_VOID",
+	[ATOM_TYPE] = "ATOM_TYPE",
+};
+
 VM_Program ee_vm_prog_new(size_t ops_count, size_t consts_count, size_t data_bytes, const Allocator* allocator)
 {
 	VM_Program out = { 0 };
@@ -1288,5 +1307,62 @@ void ee_vm_prog_debug_print(const VM_Program* prog)
 		{
 			EE_PRINT("\n");
 		}
+	}
+}
+
+Semantic_Analyzer ee_sem_new(const Allocator* allocator)
+{
+	Semantic_Analyzer out = { 0 };
+
+	if (allocator == NULL)
+	{
+		out.allocator.alloc_fn = ee_default_alloc;
+		out.allocator.realloc_fn = ee_default_realloc;
+		out.allocator.free_fn = ee_default_free;
+		out.allocator.context = NULL;
+	}
+	else
+	{
+		memcpy(&out.allocator, allocator, sizeof(Allocator));
+	}
+
+	out.ir = ee_vm_prog_new(EE_NKB(2), EE_NKB(2), EE_NMB(2), &out.allocator);
+
+	return out;
+}
+
+void ee_sem_gen_expr(Semantic_Analyzer* sem, Ast_Expr* expr, Sem_Gen_Context context)
+{
+	switch (expr->type)
+	{
+	case EXPR_LIT:
+	{
+		VM_Val val = { 0 };
+
+		switch (expr->as_lit.token->type)
+		{
+		case TOKEN_LIT_INT: val.as_u64 = expr->as_lit.token->as_u64;
+		case TOKEN_LIT_FLOAT: val.as_f64 = expr->as_lit.token->as_f64;
+		case TOKEN_LIT_STR: val.as_anyptr = expr->as_lit.token->as_str_view.buffer; // TODO(eesuck): figure this out
+		case TOKEN_TRUE: val.as_u64 = EE_TRUE;
+		case TOKEN_FALSE: val.as_u64 = EE_FALSE;
+		}
+
+		VM_Word cid = ee_vm_prog_push_const(&sem->ir, val);
+
+		ee_vm_prog_push_op(&sem->ir, OP_MOVI, context.dest, cid, EE_VM_INVALID_REG);
+	} break;
+	case EXPR_IDENT:
+	{
+		EE_ASSERT(0, "To generate identifiers the symbols table need first, todo");
+	} break;
+	case EXPR_BINOP:
+	{
+
+	} break; 
+	default:
+	{
+		EE_ASSERT(0, "Unknown expression type (%d)", expr->type);
+	} break;
 	}
 }

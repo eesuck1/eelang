@@ -440,7 +440,7 @@ Ast_Stmt* ee_pars_stmt(Parser* pars)
 
 		const Token* ident = ee_pars_eat(pars);
 
-		stmt = ee_alloc_stmt(pars, STMT_FN);
+		stmt = ee_alloc_stmt(pars, STMT_FUNC);
 		stmt->as_func_decl.ident = ident;
 		stmt->as_func_decl.params = ee_linked_array_new(EE_FUNC_ARGS_BASE_SIZE, sizeof(Ast_Func_Param), &pars->allocator);
 		stmt->as_func_decl.ret_type = NULL;
@@ -908,7 +908,7 @@ void ee_pars_debug_print_stmt(Ast_Stmt* stmt, size_t indent)
 		EE_PRINTLN("BODY: ");
 		ee_pars_debug_print_stmt(stmt->as_while.body, indent + 2);
 	} break;
-	case STMT_FN:
+	case STMT_FUNC:
 	{
 		ee_print_indent(indent);
 

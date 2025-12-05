@@ -80,7 +80,7 @@ typedef enum Ast_Stmt_Type
 	STMT_IF        = 2,
 	STMT_FOR       = 3,
 	STMT_WHILE     = 4,
-	STMT_FN        = 5,
+	STMT_FUNC      = 5,
 	STMT_RETURN    = 6,
 	STMT_MATCH     = 7,
 	STMT_ASSIGN    = 8,
@@ -106,7 +106,6 @@ typedef enum Ast_Flag
 typedef i32 Ast_Precedence;
 typedef i32 Ast_Custom_Type_Id;
 typedef i32 Bool;
-typedef size_t Usize;
 
 static const Ast_Precedence _s_op_binop_prec_table[BINOP_COUNT] = {
     [BINOP_PLUS]          = 11,
